@@ -1,0 +1,80 @@
+class_name MoveGen
+extends RefCounted
+
+## Legal destination squares for the piece with the given id.
+## Sliding pieces stop before a wall or a piece; they may capture the first
+## enemy piece encountered in a ray, but never pass through anything.
+static func legal_moves(state: BoardState, piece_id: int) -> Array[Vector2i]:
+	var piece: Piece = state.get_piece(piece_id)
+	if piece == null:
+		return []
+	return _moves_for(state, piece)
+
+
+## All squares any piece on `team` could legally move to right now.
+## Used to compute threat squares (call with the opposing team).
+static func threatened_squares(state: BoardState, team: int) -> Dictionary:
+	var threatened: Dictionary = {}
+	for piece in state.pieces:
+		if piece.team != team:
+			continue
+		for move in _moves_for(state, piece):
+			threatened[move] = true
+	return threatened
+
+
+static func _moves_for(state: BoardState, piece: Piece) -> Array[Vector2i]:
+	match piece.kind:
+		PieceKind.Kind.PAWN:
+			return _pawn_moves(state, piece)
+		PieceKind.Kind.KNIGHT:
+			return _offset_moves(state, piece, PieceKind.KNIGHT_OFFSETS)
+		PieceKind.Kind.BISHOP:
+			return _sliding_moves(state, piece, PieceKind.DIAGONAL_DIRS)
+		PieceKind.Kind.ROOK:
+			return _sliding_moves(state, piece, PieceKind.ORTHOGONAL_DIRS)
+		PieceKind.Kind.QUEEN:
+			return _sliding_moves(state, piece, PieceKind.DIAGONAL_DIRS + PieceKind.ORTHOGONAL_DIRS)
+		_:
+			return []
+
+
+static func _forward_dir(team: int) -> int:
+	# Player (team 0) advances toward +y (the goal row); enemies face the opposite way.
+	return 1 if team == 0 else -1
+
+
+static func _pawn_moves(state: BoardState, piece: Piece) -> Array[Vector2i]:
+	var moves: Array[Vector2i] = []
+	var dest: Vector2i = piece.pos + Vector2i(0, _forward_dir(piece.team))
+	if state.is_in_bounds(dest) and not state.is_wall(dest) and state.piece_at(dest) == null:
+		moves.append(dest)
+	return moves
+
+
+static func _offset_moves(state: BoardState, piece: Piece, offsets: Array[Vector2i]) -> Array[Vector2i]:
+	var moves: Array[Vector2i] = []
+	for offset in offsets:
+		var dest: Vector2i = piece.pos + offset
+		if not state.is_in_bounds(dest) or state.is_wall(dest):
+			continue
+		var occupant: Piece = state.piece_at(dest)
+		if occupant != null and occupant.team == piece.team:
+			continue
+		moves.append(dest)
+	return moves
+
+
+static func _sliding_moves(state: BoardState, piece: Piece, dirs: Array[Vector2i]) -> Array[Vector2i]:
+	var moves: Array[Vector2i] = []
+	for dir in dirs:
+		var dest: Vector2i = piece.pos + dir
+		while state.is_in_bounds(dest) and not state.is_wall(dest):
+			var occupant: Piece = state.piece_at(dest)
+			if occupant != null:
+				if occupant.team != piece.team:
+					moves.append(dest)
+				break
+			moves.append(dest)
+			dest += dir
+	return moves
