@@ -34,7 +34,7 @@ static func _load_from_dict(data: Dictionary) -> Level:
 		return _fail("width")
 	if not data.has("height") or typeof(data["height"]) != TYPE_FLOAT and typeof(data["height"]) != TYPE_INT:
 		return _fail("height")
-	if not data.has("move_budget"):
+	if not data.has("move_budget") or typeof(data["move_budget"]) != TYPE_FLOAT and typeof(data["move_budget"]) != TYPE_INT:
 		return _fail("move_budget")
 	if not data.has("player") or typeof(data["player"]) != TYPE_DICTIONARY:
 		return _fail("player")

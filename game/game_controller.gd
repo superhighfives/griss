@@ -14,7 +14,7 @@ func load_level(level: Level) -> void:
 	state = level.to_board_state()
 	initial_state = state.duplicate_state()
 	undo_stack = []
-	outcome = Rules.Outcome.ONGOING
+	outcome = Rules.check_outcome(state)
 	state_updated.emit()
 	outcome_updated.emit(outcome)
 
@@ -51,6 +51,6 @@ func undo() -> void:
 func restart() -> void:
 	state = initial_state.duplicate_state()
 	undo_stack = []
-	outcome = Rules.Outcome.ONGOING
+	outcome = Rules.check_outcome(state)
 	state_updated.emit()
 	outcome_updated.emit(outcome)
