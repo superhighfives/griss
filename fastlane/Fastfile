@@ -1,0 +1,62 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the Godot-exported Xcode project and upload it to TestFlight"
+  lane :beta do
+    xcodeproj = ENV.fetch("XCODEPROJ")
+    scheme = ENV.fetch("XCODE_SCHEME")
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_CONNECT_API_ISSUER_ID"),
+      key_content: ENV.fetch("APP_STORE_CONNECT_API_KEY_CONTENT"),
+      is_key_content_base64: true,
+      in_house: false
+    )
+
+    match(
+      type: "appstore",
+      readonly: true,
+      api_key: api_key
+    )
+
+    update_project_team(
+      path: xcodeproj,
+      teamid: ENV.fetch("APPLE_TEAM_ID")
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: xcodeproj,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      code_sign_identity: "iPhone Distribution",
+      profile_name: ENV["sigh_com.superhighfives.griss_appstore_profile-name"]
+    )
+
+    build_number = (latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "com.superhighfives.griss"
+    ) + 1).to_s
+
+    increment_build_number(
+      xcodeproj: xcodeproj,
+      build_number: build_number
+    )
+
+    build_app(
+      project: xcodeproj,
+      scheme: scheme,
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          "com.superhighfives.griss" => ENV["sigh_com.superhighfives.griss_appstore_profile-name"]
+        }
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
