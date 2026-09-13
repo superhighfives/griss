@@ -12,3 +12,5 @@ build/
 fastlane/report.xml
 fastlane/test_output
 .env
+.bundle/
+vendor/
