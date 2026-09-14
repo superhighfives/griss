@@ -51,7 +51,14 @@ platform :ios do
         provisioningProfiles: {
           "com.superhighfives.griss" => ENV["sigh_com.superhighfives.griss_appstore_profile-name"]
         }
-      }
+      },
+      # dsymutil hangs indefinitely post-archive on Godot's large statically
+      # linked binary (confirmed: sat silent for 43 minutes until the CI job
+      # timeout killed it, right after a clean link). Keeping debug info
+      # inline instead of running the separate dsymutil pass avoids invoking
+      # it at all. Costs crash-symbolication dSYMs for now - acceptable
+      # while this pipeline is still landing its first build.
+      xcargs: "DEBUG_INFORMATION_FORMAT=dwarf"
     )
 
     upload_to_testflight(
