@@ -59,7 +59,7 @@ jobs:
       - name: Export iOS Xcode project
         run: |
           mkdir -p build/ios
-          godot --headless --export-release "iOS" build/ios/griss.ipa
+          godot --headless --export-release "iOS" build/ios/griss.xcodeproj
 
       - name: Locate generated Xcode project
         run: |

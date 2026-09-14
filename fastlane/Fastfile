@@ -29,7 +29,7 @@ platform :ios do
       use_automatic_signing: false,
       path: xcodeproj,
       team_id: ENV.fetch("APPLE_TEAM_ID"),
-      code_sign_identity: "iPhone Distribution",
+      code_sign_identity: "Apple Distribution",
       profile_name: ENV["sigh_com.superhighfives.griss_appstore_profile-name"]
     )
 
