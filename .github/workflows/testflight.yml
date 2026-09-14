@@ -21,12 +21,17 @@ env:
 jobs:
   build-and-upload:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Show disk and memory headroom
+        run: |
+          df -h /
+          sysctl hw.memsize hw.ncpu
 
       - name: Cache Godot editor + export templates
         id: godot-cache
@@ -35,7 +40,7 @@ jobs:
           path: |
             /Applications/Godot.app
             ~/Library/Application Support/Godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-macos
+          key: godot-${{ env.GODOT_VERSION }}-macos-v2
 
       - name: Install Godot editor + iOS export templates
         if: steps.godot-cache.outputs.cache-hit != 'true'
@@ -50,9 +55,14 @@ jobs:
           curl -fsSL -o export_templates.tpz \
             "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           mkdir -p "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
-          unzip -q export_templates.tpz -d /tmp/godot_templates
-          mv /tmp/godot_templates/templates/* \
+          # Only ios.zip is needed for this workflow - the full tpz bundles
+          # android/linux/macos/web templates too, multiple GB of disk this
+          # runner doesn't need to spend.
+          unzip -q export_templates.tpz "templates/ios.zip" -d /tmp/godot_templates
+          mv /tmp/godot_templates/templates/ios.zip \
             "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable/"
+          rm -f export_templates.tpz
+          rm -rf /tmp/godot_templates
 
       - name: Link godot binary
         run: sudo ln -sf /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
@@ -97,6 +107,9 @@ jobs:
           ssh-add ~/.ssh/match_deploy_key
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Show disk headroom before archive
+        run: df -h /
 
       - name: Build and upload to TestFlight
         env:
