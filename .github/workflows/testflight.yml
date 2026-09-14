@@ -20,10 +20,13 @@ env:
 
 jobs:
   build-and-upload:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Cache Godot editor + export templates
         id: godot-cache
