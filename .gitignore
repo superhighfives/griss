@@ -1,2 +1,16 @@
 .godot/
 .DS_Store
+
+# iOS / Xcode / Fastlane build artifacts
+build/
+*.ipa
+*.xcarchive
+*.mobileprovision
+*.p12
+*.p8
+*.cer
+fastlane/report.xml
+fastlane/test_output
+.env
+.bundle/
+vendor/

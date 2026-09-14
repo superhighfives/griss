@@ -1,0 +1,105 @@
+name: TestFlight
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+concurrency:
+  group: testflight-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build-and-upload:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot editor + export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /Applications/Godot.app
+            ~/Library/Application Support/Godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-macos
+
+      - name: Install Godot editor + iOS export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+
+          curl -fsSL -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip -d godot_bin
+          sudo mv godot_bin/Godot.app /Applications/Godot.app
+
+          curl -fsSL -o export_templates.tpz \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q export_templates.tpz -d /tmp/godot_templates
+          mv /tmp/godot_templates/templates/* \
+            "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Link godot binary
+        run: sudo ln -sf /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
+
+      - name: Import project resources
+        run: godot --headless --editor --quit-after 1
+
+      - name: Export iOS Xcode project
+        run: |
+          mkdir -p build/ios
+          godot --headless --export-release "iOS" build/ios/griss.ipa
+
+      - name: Locate generated Xcode project
+        run: |
+          set -euo pipefail
+          XCODEPROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -n1)
+          if [ -z "$XCODEPROJ" ]; then
+            echo "::error::No .xcodeproj found under build/ios after Godot export" >&2
+            find build/ios
+            exit 1
+          fi
+          SCHEME=$(basename "$XCODEPROJ" .xcodeproj)
+          echo "Found $XCODEPROJ with scheme $SCHEME"
+          echo "XCODEPROJ=$XCODEPROJ" >> "$GITHUB_ENV"
+          echo "XCODE_SCHEME=$SCHEME" >> "$GITHUB_ENV"
+
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Set up SSH access to the match certificates repo
+        env:
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$MATCH_DEPLOY_KEY" > ~/.ssh/match_deploy_key
+          chmod 600 ~/.ssh/match_deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/match_deploy_key
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Build and upload to TestFlight
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: bundle exec fastlane ios beta
