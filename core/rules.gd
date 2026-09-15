@@ -20,6 +20,7 @@ static func apply_move(state: BoardState, piece_id: int, dest: Vector2i) -> bool
 		state.remove_piece(occupant.id)
 
 	piece.pos = dest
+	piece.has_moved = true
 	state.moves_used += 1
 
 	if piece.team == 0 and state.powerups.has(dest):

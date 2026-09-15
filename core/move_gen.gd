@@ -46,9 +46,19 @@ static func _forward_dir(team: int) -> int:
 
 static func _pawn_moves(state: BoardState, piece: Piece) -> Array[Vector2i]:
 	var moves: Array[Vector2i] = []
-	var dest: Vector2i = piece.pos + Vector2i(0, _forward_dir(piece.team))
-	if state.is_in_bounds(dest) and not state.is_wall(dest) and state.piece_at(dest) == null:
-		moves.append(dest)
+	var dir: int = _forward_dir(piece.team)
+	var one_step: Vector2i = piece.pos + Vector2i(0, dir)
+	if not state.is_in_bounds(one_step) or state.is_wall(one_step) or state.piece_at(one_step) != null:
+		return moves
+	moves.append(one_step)
+
+	# Two-square advance, chess rules: only before the pawn's first move, and
+	# only if both squares ahead are clear - it can't jump over an occupant.
+	if not piece.has_moved:
+		var two_step: Vector2i = piece.pos + Vector2i(0, dir * 2)
+		if state.is_in_bounds(two_step) and not state.is_wall(two_step) and state.piece_at(two_step) == null:
+			moves.append(two_step)
+
 	return moves
 
 

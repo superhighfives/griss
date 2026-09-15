@@ -8,6 +8,7 @@ func _empty_board() -> BoardState:
 func test_pawn_moves_one_step_forward() -> bool:
 	var state: BoardState = _empty_board()
 	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	pawn.has_moved = true
 	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
 	return assert_array_eq_unordered(moves, [Vector2i(1, 6)], "pawn forward move")
 
@@ -25,6 +26,37 @@ func test_pawn_blocked_by_piece() -> bool:
 	state.add_piece(PieceKind.Kind.PAWN, 1, Vector2i(1, 6))
 	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
 	return assert_array_eq_unordered(moves, [], "pawn cannot capture forward")
+
+
+func test_pawn_first_move_can_advance_two_squares() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 1), Vector2i(1, 2)], "pawn first move: one or two squares")
+
+
+func test_pawn_cannot_double_move_after_moving() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	Rules.apply_move(state, pawn.id, Vector2i(1, 1))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 2)], "pawn only one square after its first move")
+
+
+func test_pawn_double_move_blocked_by_wall_on_second_square() -> bool:
+	var state: BoardState = _empty_board()
+	state.walls[Vector2i(1, 2)] = true
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 1)], "pawn cannot leap a wall on the second square")
+
+
+func test_pawn_double_move_blocked_by_piece_on_second_square() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	state.add_piece(PieceKind.Kind.PAWN, 1, Vector2i(1, 2))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 1)], "pawn cannot leap a piece on the second square")
 
 
 func test_knight_moves_on_4_wide_board() -> bool:
