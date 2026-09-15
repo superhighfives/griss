@@ -105,14 +105,9 @@ A new build should appear under App Store Connect → TestFlight → iOS
 builds a few minutes after the workflow finishes (Apple's own processing
 takes a bit longer on top of that).
 
-## Known first-run risk
-
-This pipeline has never run before — there's no local iOS export to have
-already shaken out issues in `export_presets.cfg` or the Godot-generated
-Xcode project/scheme naming. If the first run fails, check the Actions log
-first; the most likely failure points are the Godot export step (preset
-field mismatch) or the Xcode archive/signing step (profile name mismatch
-between what `match` created and what `fastlane/Fastfile` expects).
+This pipeline is proven working — see [`HANDOVER.md`](../HANDOVER.md)'s
+"iOS TestFlight pipeline" section for the (non-obvious) issue that took the
+longest to run down, in case something in this area breaks again.
 
 ## Deferred / not handled yet
 

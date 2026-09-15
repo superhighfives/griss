@@ -146,6 +146,9 @@ is still installed and reviews any PR that does get opened
 - [`docs/PLAN.md`](docs/PLAN.md) — the original design brief: architecture
   constraints, full game rules, level format, and the milestone roadmap
   (M0–M4).
+- [`plans/`](plans/README.md) — active specs for the next slice of work,
+  one milestone/feature per file, moving through a
+  backlog → ready → in-progress → done lifecycle.
 - [`HANDOVER.md`](HANDOVER.md) — where the project currently stands,
   environment quirks, and the immediate next milestone.
 - [`docs/TESTFLIGHT_SETUP.md`](docs/TESTFLIGHT_SETUP.md) — the one-time
