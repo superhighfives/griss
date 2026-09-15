@@ -67,6 +67,7 @@ func _build_cells() -> void:
 			var rect: ColorRect = ColorRect.new()
 			rect.size = Vector2(CELL_SIZE - CELL_MARGIN, CELL_SIZE - CELL_MARGIN)
 			rect.position = grid_to_screen(pos)
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if controller.state.is_wall(pos):
 				rect.color = COLOR_WALL
 			elif pos.y == controller.state.goal_row:
@@ -90,12 +91,14 @@ func _create_piece_node(piece: Piece) -> void:
 	body.size = Vector2(CELL_SIZE - PIECE_MARGIN, CELL_SIZE - PIECE_MARGIN)
 	body.position = grid_to_screen(piece.pos) + Vector2(PIECE_MARGIN, PIECE_MARGIN) / 2.0
 	body.color = COLOR_PLAYER if piece.team == 0 else COLOR_ENEMY
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var label: Label = Label.new()
 	label.text = PieceKind.kind_to_letter(piece.kind) if piece.team == 0 else "E"
 	label.size = body.size
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(label)
 
 	add_child(body)
