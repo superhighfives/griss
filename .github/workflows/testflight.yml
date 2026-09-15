@@ -232,15 +232,3 @@ jobs:
           path: /tmp/stack-samples.log
           if-no-files-found: ignore
 
-      # The console output above is xcpretty-filtered - it only shows step
-      # banners ("Extract App Intents Metadata"), not which specific tool
-      # invocation is actually running. This is the full raw xcodebuild
-      # verbose log fastlane's gym always writes alongside it, still on
-      # disk even if the job times out mid-build.
-      - name: Upload raw xcodebuild log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcodebuild-raw-log
-          path: build/logs
-          if-no-files-found: ignore
