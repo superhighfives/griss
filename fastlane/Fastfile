@@ -58,7 +58,14 @@ platform :ios do
       # inline instead of running the separate dsymutil pass avoids invoking
       # it at all. Costs crash-symbolication dSYMs for now - acceptable
       # while this pipeline is still landing its first build.
-      xcargs: "DEBUG_INFORMATION_FORMAT=dwarf"
+      # -jobs 2: the GitHub-hosted macos-latest runner has only 3 CPUs and
+      # 7.5GB RAM (confirmed via sysctl in CI). Linking Godot's large
+      # statically-linked engine binary at full parallelism spikes memory
+      # enough to cause severe swap thrashing - which looks like a hang
+      # (three consecutive runs stalled ~20-45 minutes at three different
+      # steps, none of which are slow on a normal machine). Capping
+      # parallelism trades build time for peace of mind on a small runner.
+      xcargs: "DEBUG_INFORMATION_FORMAT=dwarf -jobs 2"
     )
 
     upload_to_testflight(
