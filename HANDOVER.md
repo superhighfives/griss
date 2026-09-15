@@ -6,15 +6,15 @@ Everything below assumes you've read the plan.
 
 ## Where things stand
 
-- **M0 and M1 are done** on the `m0-m1-scaffold` branch, currently open as
-  [PR #1](https://github.com/superhighfives/griss/pull/1) against `main`.
-  `main` itself is intentionally just a single empty root commit right now —
-  see "Why main is empty" below before you touch branch history.
-- Core rules engine (`core/`), a runtime-built game layer (`game/`), the
-  headless test suite (`tests/`, 37 passing), and `levels/01_first_steps.json`
-  all exist only on `m0-m1-scaffold` until that PR merges.
+- **M0 and M1 are done and merged to `main`** (was PR #1). Core rules engine
+  (`core/`), a runtime-built game layer (`game/`), the headless test suite
+  (`tests/`, 40 passing), and `levels/01_first_steps.json` all live on `main`.
+- **An iOS TestFlight CI pipeline has been added** since M0/M1 landed — see
+  "iOS TestFlight pipeline" below before touching anything under
+  `fastlane/`, `.github/workflows/testflight.yml`, or `export_presets.cfg`.
+  It is not yet reliably green; see "Immediate next step".
 - `godot` is installed via Homebrew (`brew install --cask godot`, v4.7.2) on
-  this machine. It was not present before this project started.
+  this machine, matching what CI uses.
 
 Run the test suite from repo root:
 
@@ -22,31 +22,88 @@ Run the test suite from repo root:
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-Should print `Passed: 37, Failed: 0`. Run this after every change, and again
+Should print `Passed: 40, Failed: 0`. Run this after every change, and again
 before ending any milestone.
 
-## Immediate next step: land PR #1
+## Immediate next step: get TestFlight CI reliably green
 
-1. Review it, then merge it (branch protection on `main` requires 1 approval
-   — see "Repo/CI setup" below).
-2. After merging, delete the `m0-m1-scaffold` branch.
-3. Pull `main` locally and confirm `godot --headless --path . --script
-   res://tests/run_tests.gd` still passes at the merge commit.
+The pipeline's Godot export, code signing, and Xcode archive/link steps have
+all been individually verified working (both locally and in real CI runs),
+but the `macos-latest` GitHub-hosted runner is resource-constrained — only
+**3 CPUs / 7.5GB RAM** (confirmed via `sysctl` in a CI run) — and linking
+Godot's large statically-linked engine binary at full parallelism has caused
+several runs to stall for 20-45 minutes at inconsistent steps (dSYM
+generation, right after linking, App Intents metadata extraction — all
+fast on a normal machine), which reads exactly like memory-pressure swap
+thrashing, not a deterministic bug.
 
-**Known wrinkle:** the control-room review workflow (see below) has a safety
-guard that skips review entirely — posting "this PR has not been reviewed"
-instead of a real verdict — on any PR that touches a path under
-`.github/workflows/`, unless that file is byte-identical to `main`'s copy.
-PR #1 currently trips this because an earlier commit on the branch deleted
-`.github/workflows/claude-code-review.yml` (it had been added to the branch,
-then also pushed directly to `main` separately, then removed from the branch
-to avoid duplicating it — net result: the branch's diff still touches that
-path even though the deletion nets out to "no change"). The PR's last *real*
-review (before the deletion commit) was 🟡 *Approved with comments*, nothing
-blocking. If you want a fresh, non-skipped review before merging, you likely
-need a commit on the branch that touches no path under `.github/workflows/`
-relative to `main` — check `git diff origin/main...m0-m1-scaffold --
-.github/workflows/` is empty before pushing.
+The latest fix (`-jobs 2` in `fastlane/Fastfile`'s `build_app` call, capping
+`xcodebuild` parallelism) is in PR #10, not yet confirmed to fully resolve
+it — check whether that run (or the next one) actually completes rather than
+timing out. If it still hangs, the next things to try, in order: drop to
+`-jobs 1`, or accept that the free-tier runner is simply too small and move
+to a larger paid runner tier (`macos-latest-xlarge` or similar).
+
+**Known wrinkle, general and ongoing (not specific to any one PR):** the
+control-room review workflow has a safety guard that skips review entirely —
+posting "this PR has not been reviewed" instead of a real verdict — on any
+PR that touches a path under `.github/workflows/`. Several PRs this session
+(adding `workflow_dispatch`, switching to `macos-latest`, the disk/memory
+diagnostics) could never get a real review for exactly this reason and were
+merged with `gh pr merge --admin` (repo owner bypassing the "1 approval"
+branch rule deliberately). PRs that *don't* touch `.github/workflows/` (e.g.
+`fastlane/Fastfile` changes) get a real review and, since the control-room
+GitHub App now has `Contents: Read-and-write`, a genuine 🟢 approval from it
+can satisfy the branch rule on its own — see "iOS TestFlight pipeline" and
+`superhighfives/control-room`'s README ("Making blocking actually block")
+for why that permission is needed.
+
+## iOS TestFlight pipeline
+
+Every push to `main` (excluding docs-only changes) exports the game with
+Godot, builds and signs it via Xcode, and uploads to TestFlight via
+Fastlane — see `.github/workflows/testflight.yml`. Manual re-run available
+via `workflow_dispatch`.
+
+- **One-time setup runbook**: [`docs/TESTFLIGHT_SETUP.md`](docs/TESTFLIGHT_SETUP.md)
+  — Apple Developer Team ID, App Store Connect app record + API key, the
+  Fastlane `match` certificates repo (`superhighfives/griss-certificates`,
+  private), and the 7 GitHub secrets the workflow needs. All of this is
+  already done for this project; the doc exists for reference/rotation, not
+  as a blocker.
+- **Signing**: `fastlane match` manages the distribution certificate and
+  provisioning profile, encrypted in `griss-certificates` under
+  `MATCH_PASSWORD`. The certificate's `.p12` **must have an empty internal
+  password** — `fastlane`'s keychain importer hardcodes that assumption with
+  no override, so a `.p12` exported from Keychain Access with a real
+  password (the natural thing to do) will import fine on a machine that
+  already trusts the identity but fail with "MAC verification failed" on a
+  fresh CI keychain. If you ever need to re-bootstrap the certs repo,
+  re-encode the `.p12` via a `security export … -P ""` round-trip (not
+  OpenSSL — OpenSSL 3.x's empty-password PKCS12 encoding isn't compatible
+  with macOS's importer, confirmed empirically) before importing it.
+- **Godot version gotchas**: several `export_presets.cfg` option keys from
+  older Godot docs/tutorials have been renamed as of 4.7 —
+  `application/identifier` → `application/bundle_identifier`,
+  `"iPhone Distribution"`/`"iPhone Developer"` code-sign identity strings →
+  `"Apple Distribution"`/`"Apple Development"`, `.ipa` is no longer a valid
+  `export_path` extension (use `.zip` or `.xcodeproj`). Worth knowing if any
+  of this needs touching again after a future Godot upgrade.
+- **A missing app icon silently blocks export with no error message** — a
+  genuine Godot bug (`should_import_etc2_astc()` fails validation without
+  ever appending an error string, so you just see an empty "configuration
+  errors:" block). Fixed by adding `icon.png` (currently a placeholder) and
+  `rendering/textures/vram_compression/import_etc2_astc=true` in
+  `project.godot`. Replace `icon.png` with real branding before an actual
+  App Store submission — it's a placeholder, fine for internal TestFlight
+  testing only.
+- **Fastlane secrets are explicit, never `secrets: inherit`** in
+  `.github/workflows/claude-code-review.yml` — this repo also holds Apple
+  signing secrets (`MATCH_PASSWORD`, `MATCH_DEPLOY_KEY`,
+  `APP_STORE_CONNECT_API_KEY_CONTENT`) that the review job has no reason to
+  ever see. See `superhighfives/control-room`'s README for the full
+  reasoning (the review job runs an AI agent with broad Bash access over PR
+  content — exactly what prompt injection targets).
 
 ## Then: M2 — Pressure
 
@@ -76,10 +133,16 @@ Per `docs/PLAN.md` section 8. Scope:
 
 - Public repo: <https://github.com/superhighfives/griss>.
 - `superhighfives/control-room` review workflow installed at
-  `.github/workflows/claude-code-review.yml` on `main`, with `runtime: none`
-  (no node/bun toolchain — this is a GDScript project). Secret
-  `CLAUDE_CODE_OAUTH_TOKEN` is configured on the repo and confirmed working
-  (a real review has posted successfully on PR #1).
+  `.github/workflows/claude-code-review.yml` on `main`, pinned to a specific
+  commit SHA (not `@main` — it now carries the more sensitive
+  `APP_PRIVATE_KEY` secret below, worth reviewing deliberately rather than
+  trusting whatever `control-room`'s `main` currently contains), with
+  `runtime: none` (no node/bun toolchain — this is a GDScript project).
+  Two secrets: `CLAUDE_CODE_OAUTH_TOKEN` (confirmed working — real reviews
+  have posted) and `APP_PRIVATE_KEY` (the `control-room-review` GitHub
+  App's key, needed for the review's 🟢 verdict to actually land as an
+  `APPROVE` state instead of silently downgrading to a comment — see
+  `superhighfives/control-room`'s README for why).
 - Branch protection on `main`: requires a PR, 1 approval, dismisses stale
   approvals on new pushes, force-pushes disabled. `enforce_admins` is
   `false`, so the repo owner can still bypass and push directly when needed
