@@ -133,16 +133,17 @@ Per `docs/PLAN.md` section 8. Scope:
 
 - Public repo: <https://github.com/superhighfives/griss>.
 - `superhighfives/control-room` review workflow installed at
-  `.github/workflows/claude-code-review.yml` on `main`, pinned to a specific
-  commit SHA (not `@main` — it now carries the more sensitive
-  `APP_PRIVATE_KEY` secret below, worth reviewing deliberately rather than
-  trusting whatever `control-room`'s `main` currently contains), with
-  `runtime: none` (no node/bun toolchain — this is a GDScript project).
-  Two secrets: `CLAUDE_CODE_OAUTH_TOKEN` (confirmed working — real reviews
-  have posted) and `APP_PRIVATE_KEY` (the `control-room-review` GitHub
-  App's key, needed for the review's 🟢 verdict to actually land as an
-  `APPROVE` state instead of silently downgrading to a comment — see
-  `superhighfives/control-room`'s README for why).
+  `.github/workflows/claude-code-review.yml` on `main`, referenced as
+  `@main` (a SHA pin was considered — it now carries the more sensitive
+  `APP_PRIVATE_KEY` secret below — but deliberately kept floating: it's the
+  same org's own actively-iterated tooling, and the manual re-pin on every
+  `control-room` change wasn't judged worth it here), with `runtime: none`
+  (no node/bun toolchain — this is a GDScript project). Two secrets:
+  `CLAUDE_CODE_OAUTH_TOKEN` (confirmed working — real reviews have posted)
+  and `APP_PRIVATE_KEY` (the `control-room-review` GitHub App's key, needed
+  for the review's 🟢 verdict to actually land as an `APPROVE` state instead
+  of silently downgrading to a comment — see `superhighfives/control-room`'s
+  README for why).
 - Branch protection on `main`: requires a PR, 1 approval, dismisses stale
   approvals on new pushes, force-pushes disabled. `enforce_admins` is
   `false`, so the repo owner can still bypass and push directly when needed
