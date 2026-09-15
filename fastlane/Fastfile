@@ -6,6 +6,19 @@ platform :ios do
     xcodeproj = ENV.fetch("XCODEPROJ")
     scheme = ENV.fetch("XCODE_SCHEME")
 
+    # Root cause of the archive hang, found via a raw (non-xcpretty)
+    # xcodebuild log: it stalls inside swift-stdlib-tool's per-dylib
+    # `--sign <identity>` call while copying the Swift runtime into the app
+    # bundle - i.e. a real codesign invocation, not a build/link step.
+    # codesign hangs rather than erroring when it needs interactive
+    # keychain/ACL access with no window server to prompt on, which matches
+    # a well-documented match gotcha: it only grants the imported
+    # certificate `apple-tool:`/`apple:` partition IDs, not `codesign:`, so
+    # codesign itself can be left without non-interactive access. setup_ci
+    # is fastlane's purpose-built fix - a dedicated CI keychain, unlocked,
+    # correct partition list, no lock timeout.
+    setup_ci if ENV["CI"]
+
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
       issuer_id: ENV.fetch("APP_STORE_CONNECT_API_ISSUER_ID"),
