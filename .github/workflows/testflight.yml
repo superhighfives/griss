@@ -111,6 +111,27 @@ jobs:
       - name: Show disk headroom before archive
         run: df -h /
 
+      # Two of the last three runs hung ~20-45 minutes at the archive/link
+      # step with no further log output, at three different points across
+      # runs - looks like memory-pressure swap thrashing, but that's still a
+      # guess. Sample real memory/swap state every 10s in the background so
+      # a repeat gives actual evidence instead of another guess. Written to
+      # disk, not stdout, so it survives even if this step gets killed by
+      # the job timeout - the next step (if: always()) surfaces it either way.
+      - name: Start memory/swap sampler
+        run: |
+          (
+            while true; do
+              echo "=== $(date -u +%H:%M:%S) ==="
+              vm_stat
+              sysctl vm.swapusage
+              top -l 1 -n 5 -o mem -stats pid,command,mem 2>/dev/null | tail -8
+              echo
+              sleep 10
+            done
+          ) > /tmp/memory-sampler.log 2>&1 &
+          echo $! > /tmp/memory-sampler.pid
+
       - name: Build and upload to TestFlight
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
@@ -120,3 +141,9 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
         run: bundle exec fastlane ios beta
+
+      - name: Show memory/swap sampler output
+        if: always()
+        run: |
+          kill "$(cat /tmp/memory-sampler.pid)" 2>/dev/null || true
+          tail -300 /tmp/memory-sampler.log || true
