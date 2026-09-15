@@ -138,16 +138,24 @@ jobs:
         run: df -h /
 
       # Ruled out memory exhaustion (vm.swapusage stayed at 0 for the entire
-      # hang) and Spotlight (disabling it in the previous PR made no
-      # difference - it was just coincidental background noise, not the
-      # cause). Not yet checked: CPU. This runner only has 3 vCPUs - a
-      # CPU-bound linker under virtualization overhead would look identical
-      # to a genuine hang in memory-only data. Track the actual build
-      # processes directly by name (cpu%, mem%, and process state - 'D'
-      # means blocked on I/O, 'R' with high cpu% means genuinely busy, 'S'
-      # near-0% cpu for a long stretch means actually stuck) rather than
-      # relying on top's mem-sorted top-5, which can miss a CPU-bound
-      # process entirely if its memory footprint is unremarkable.
+      # hang), Spotlight (disabling it in a prior PR made no difference), and
+      # now CPU too: a prior run's process-state data showed xcodebuild
+      # sitting at exactly 0.0% CPU in state S (idle, not I/O-blocked, not
+      # busy) for the entire ~20min hang, with no clang/swift-frontend/ld/
+      # dsymutil child process running at all, and the whole runner's
+      # top-5-by-CPU list was other idle system daemons. That rules out a
+      # CPU-bound linker under virtualization - this is a genuine stall
+      # between xcodebuild and its SWBBuildService (Xcode's newer Swift-based
+      # build backend), both idle, waiting on something that never arrives.
+      # Knowing THAT isn't enough to fix it - capture real stack traces of
+      # both processes while stuck (macOS's built-in `sample`) so the next
+      # attempt targets the actual blocked call, not another guess.
+      #
+      # (The previous grep-based process filter also had a bug worth noting:
+      # `grep -iE "ld|..."` matches "ld" as a *substring*, so it picked up
+      # unrelated system daemons like bootinstalld/installd/triald/seld/maild
+      # as noise alongside the real build processes. Fixed below by matching
+      # the process basename exactly instead.)
       - name: Start memory/swap/CPU sampler
         run: |
           (
@@ -158,12 +166,34 @@ jobs:
               echo "--- top 5 by CPU ---"
               top -l 1 -n 5 -o cpu -stats pid,command,cpu,mem 2>/dev/null | tail -8 || true
               echo "--- build-related processes (pid, %cpu, %mem, state, name) ---"
-              ps -axo pid,pcpu,pmem,stat,comm 2>/dev/null | grep -iE "ld|xcodebuild|clang|swift-frontend|swift-build|codesign|dsymutil|appintent" | grep -v grep || echo "(none found)"
+              ps -axo pid,pcpu,pmem,stat,comm 2>/dev/null | awk '
+                NR==1 { print; next }
+                {
+                  n = $5
+                  sub(/.*\//, "", n)
+                  if (n ~ /^(ld|xcodebuild|clang(\+\+)?|swift-frontend|swift-build(-tool)?|SWBBuildService|ibtoold|codesign|dsymutil|appintentsmetadataprocessor)$/) print
+                }
+              ' || echo "(none found)"
               echo
               sleep 10
             done
           ) > /tmp/memory-sampler.log 2>&1 &
           echo $! > /tmp/memory-sampler.pid
+
+          (
+            while true; do
+              sleep 90
+              for name in xcodebuild SWBBuildService; do
+                pid=$(pgrep -x "$name" | head -n1)
+                if [ -n "$pid" ]; then
+                  echo "=== $(date -u +%H:%M:%S) stack sample: $name (pid $pid) ===" >> /tmp/stack-samples.log
+                  sample "$pid" 1 -mayDie >> /tmp/stack-samples.log 2>&1 || true
+                  echo >> /tmp/stack-samples.log
+                fi
+              done
+            done
+          ) &
+          echo $! > /tmp/stack-sampler.pid
 
       - name: Build and upload to TestFlight
         env:
@@ -179,7 +209,10 @@ jobs:
         if: always()
         run: |
           kill "$(cat /tmp/memory-sampler.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/stack-sampler.pid)" 2>/dev/null || true
           tail -300 /tmp/memory-sampler.log || true
+          echo "--- stack samples ---"
+          cat /tmp/stack-samples.log 2>/dev/null || echo "(no stack samples captured)"
 
       - name: Upload memory/swap sampler log
         if: always()
@@ -187,4 +220,12 @@ jobs:
         with:
           name: memory-sampler-log
           path: /tmp/memory-sampler.log
+          if-no-files-found: ignore
+
+      - name: Upload stack samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-samples-log
+          path: /tmp/stack-samples.log
           if-no-files-found: ignore
