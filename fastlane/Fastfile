@@ -47,6 +47,16 @@ platform :ios do
       project: xcodeproj,
       scheme: scheme,
       export_method: "app-store",
+      # gym always writes the full raw xcodebuild verbose log here regardless
+      # of the xcpretty-formatted console output above (which only shows
+      # step banners like "Extract App Intents Metadata", not which specific
+      # tool is actually running). Explicit path so CI can upload it as an
+      # artifact even when the job times out mid-build - reproducing this
+      # exact archive locally (same Xcode 26.6, same project) showed the
+      # underlying appintentsmetadataprocessor call completing in ~6ms, so
+      # whatever CI is actually stuck on next is something the console
+      # banner alone hasn't told us.
+      buildlog_path: "build/logs",
       export_options: {
         provisioningProfiles: {
           "com.superhighfives.griss" => ENV["sigh_com.superhighfives.griss_appstore_profile-name"]
