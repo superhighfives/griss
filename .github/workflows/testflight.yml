@@ -47,13 +47,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          curl -fsSL -o godot.zip \
-            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          RELEASE_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+
+          # Verify against Godot's official published checksums rather than
+          # trusting the download blind - this is a supply-chain step in a
+          # job that later signs and ships a real TestFlight build.
+          curl -fsSL -o SHA512-SUMS.txt "$RELEASE_URL/SHA512-SUMS.txt"
+
+          # $1 = filename as listed in SHA512-SUMS.txt, $2 = local filename
+          # we actually saved it as (curl -o renames it).
+          verify() {
+            hash=$(grep " ${1}\$" SHA512-SUMS.txt | awk '{print $1}')
+            echo "$hash  $2" | shasum -a 512 -c -
+          }
+
+          curl -fsSL -o godot.zip "$RELEASE_URL/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          verify "Godot_v${GODOT_VERSION}-stable_macos.universal.zip" godot.zip
           unzip -q godot.zip -d godot_bin
           sudo mv godot_bin/Godot.app /Applications/Godot.app
 
-          curl -fsSL -o export_templates.tpz \
-            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSL -o export_templates.tpz "$RELEASE_URL/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          verify "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" export_templates.tpz
           mkdir -p "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
           # Only ios.zip is needed for this workflow - the full tpz bundles
           # android/linux/macos/web templates too, multiple GB of disk this
