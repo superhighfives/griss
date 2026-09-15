@@ -35,7 +35,7 @@ jobs:
       # between three different steps across runs: it's about when Spotlight
       # touches the contended files, not a bug in any one build step.
       - name: Disable Spotlight indexing on the work volume
-        run: sudo mdutil -a -i off
+        run: sudo mdutil -a -i off || true
 
       - name: Show Xcode version
         run: xcodebuild -version
