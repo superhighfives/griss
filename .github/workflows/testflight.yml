@@ -123,9 +123,9 @@ jobs:
           (
             while true; do
               echo "=== $(date -u +%H:%M:%S) ==="
-              vm_stat
-              sysctl vm.swapusage
-              top -l 1 -n 5 -o mem -stats pid,command,mem 2>/dev/null | tail -8
+              vm_stat || true
+              sysctl vm.swapusage || true
+              top -l 1 -n 5 -o mem -stats pid,command,mem 2>/dev/null | tail -8 || true
               echo
               sleep 10
             done
@@ -147,3 +147,11 @@ jobs:
         run: |
           kill "$(cat /tmp/memory-sampler.pid)" 2>/dev/null || true
           tail -300 /tmp/memory-sampler.log || true
+
+      - name: Upload memory/swap sampler log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-sampler-log
+          path: /tmp/memory-sampler.log
+          if-no-files-found: ignore
