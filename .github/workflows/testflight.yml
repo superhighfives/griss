@@ -188,6 +188,8 @@ jobs:
                 if [ -n "$pid" ]; then
                   echo "=== $(date -u +%H:%M:%S) stack sample: $name (pid $pid) ===" >> /tmp/stack-samples.log
                   sample "$pid" 1 -mayDie >> /tmp/stack-samples.log 2>&1 || true
+                  echo "--- open fds for $name (pid $pid) ---" >> /tmp/stack-samples.log
+                  lsof -p "$pid" >> /tmp/stack-samples.log 2>&1 || true
                   echo >> /tmp/stack-samples.log
                 fi
               done
