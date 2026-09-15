@@ -25,6 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Memory/swap sampling from a prior run ruled out resource exhaustion
+      # (vm.swapusage stayed at 0 the whole time; the only processes ever
+      # showing up as memory consumers were macOS's own Spotlight indexer
+      # (mds_stores/Spotlight), never ld/clang/xcodebuild/dsymutil). That
+      # points at Spotlight indexing the freshly-downloaded huge binaries and
+      # contending for disk I/O/file locks with the build - a well-known
+      # GitHub Actions macOS CI gotcha, and it explains why the hang moved
+      # between three different steps across runs: it's about when Spotlight
+      # touches the contended files, not a bug in any one build step.
+      - name: Disable Spotlight indexing on the work volume
+        run: sudo mdutil -a -i off
+
       - name: Show Xcode version
         run: xcodebuild -version
 
