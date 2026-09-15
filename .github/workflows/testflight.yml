@@ -137,21 +137,28 @@ jobs:
       - name: Show disk headroom before archive
         run: df -h /
 
-      # Two of the last three runs hung ~20-45 minutes at the archive/link
-      # step with no further log output, at three different points across
-      # runs - looks like memory-pressure swap thrashing, but that's still a
-      # guess. Sample real memory/swap state every 10s in the background so
-      # a repeat gives actual evidence instead of another guess. Written to
-      # disk, not stdout, so it survives even if this step gets killed by
-      # the job timeout - the next step (if: always()) surfaces it either way.
-      - name: Start memory/swap sampler
+      # Ruled out memory exhaustion (vm.swapusage stayed at 0 for the entire
+      # hang) and Spotlight (disabling it in the previous PR made no
+      # difference - it was just coincidental background noise, not the
+      # cause). Not yet checked: CPU. This runner only has 3 vCPUs - a
+      # CPU-bound linker under virtualization overhead would look identical
+      # to a genuine hang in memory-only data. Track the actual build
+      # processes directly by name (cpu%, mem%, and process state - 'D'
+      # means blocked on I/O, 'R' with high cpu% means genuinely busy, 'S'
+      # near-0% cpu for a long stretch means actually stuck) rather than
+      # relying on top's mem-sorted top-5, which can miss a CPU-bound
+      # process entirely if its memory footprint is unremarkable.
+      - name: Start memory/swap/CPU sampler
         run: |
           (
             while true; do
               echo "=== $(date -u +%H:%M:%S) ==="
               vm_stat || true
               sysctl vm.swapusage || true
-              top -l 1 -n 5 -o mem -stats pid,command,mem 2>/dev/null | tail -8 || true
+              echo "--- top 5 by CPU ---"
+              top -l 1 -n 5 -o cpu -stats pid,command,cpu,mem 2>/dev/null | tail -8 || true
+              echo "--- build-related processes (pid, %cpu, %mem, state, name) ---"
+              ps -axo pid,pcpu,pmem,stat,comm 2>/dev/null | grep -iE "ld|xcodebuild|clang|swift-frontend|swift-build|codesign|dsymutil|appintent" | grep -v grep || echo "(none found)"
               echo
               sleep 10
             done
