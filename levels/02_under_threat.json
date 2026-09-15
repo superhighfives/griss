@@ -1,0 +1,10 @@
+{
+  "name": "Under Threat",
+  "width": 4,
+  "height": 12,
+  "move_budget": 10,
+  "player": { "kind": "KNIGHT", "pos": [1, 0] },
+  "walls": [],
+  "powerups": [],
+  "enemies": [{ "kind": "BISHOP", "pos": [2, 5] }]
+}

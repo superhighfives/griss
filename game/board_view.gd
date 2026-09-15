@@ -12,16 +12,19 @@ const COLOR_GOAL: Color = Color(0.16, 0.34, 0.2)
 const COLOR_PLAYER: Color = Color(0.2, 0.45, 0.9)
 const COLOR_ENEMY: Color = Color(0.8, 0.2, 0.2)
 const COLOR_HIGHLIGHT: Color = Color(1.0, 0.95, 0.3, 0.4)
+const COLOR_THREAT: Color = Color(0.9, 0.15, 0.15, 0.35)
 
 var controller: GameController
 var _cell_nodes: Dictionary = {}
 var _piece_nodes: Dictionary = {}
 var _highlight_nodes: Array[ColorRect] = []
+var _threat_nodes: Array[ColorRect] = []
 
 
 func setup(p_controller: GameController) -> void:
 	controller = p_controller
 	_build_cells()
+	_rebuild_threats()
 	_rebuild_pieces()
 
 
@@ -38,6 +41,7 @@ func screen_to_grid(screen_pos: Vector2) -> Vector2i:
 
 
 func refresh() -> void:
+	_rebuild_threats()
 	_rebuild_pieces()
 	clear_highlights()
 
@@ -58,6 +62,25 @@ func clear_highlights() -> void:
 	for highlight in _highlight_nodes:
 		highlight.queue_free()
 	_highlight_nodes = []
+
+
+## Squares any enemy could currently move/capture into - rebuilt on every
+## refresh() (not tied to selection like show_highlights) so danger stays
+## visible whether or not a piece is selected. Rebuilt before pieces each
+## time so the tint sits under them, not over.
+func _rebuild_threats() -> void:
+	for threat in _threat_nodes:
+		threat.queue_free()
+	_threat_nodes = []
+	var threatened: Dictionary = MoveGen.threatened_squares(controller.state, 1)
+	for pos: Vector2i in threatened.keys():
+		var threat: ColorRect = ColorRect.new()
+		threat.size = Vector2(CELL_SIZE - CELL_MARGIN, CELL_SIZE - CELL_MARGIN)
+		threat.position = grid_to_screen(pos)
+		threat.color = COLOR_THREAT
+		threat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(threat)
+		_threat_nodes.append(threat)
 
 
 func _build_cells() -> void:

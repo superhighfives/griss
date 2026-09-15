@@ -1,0 +1,10 @@
+{
+  "name": "Boxed In",
+  "width": 4,
+  "height": 3,
+  "move_budget": 5,
+  "player": { "kind": "PAWN", "pos": [1, 0] },
+  "walls": [[1, 1]],
+  "powerups": [],
+  "enemies": []
+}
