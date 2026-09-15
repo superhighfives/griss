@@ -133,3 +133,14 @@ func test_missing_required_field_rejected() -> bool:
 func test_malformed_json_rejected() -> bool:
 	var level: Level = LevelLoader.load_from_string("{ not valid json")
 	return assert_null(level, "malformed json should fail")
+
+
+func test_non_numeric_move_budget_rejected() -> bool:
+	var json_text: String = """
+	{ "width": 4, "height": 12, "move_budget": "twenty",
+	  "player": { "kind": "PAWN", "pos": [0, 0] } }
+	"""
+	var level: Level = LevelLoader.load_from_string(json_text)
+	if not assert_null(level, "string move_budget should fail"):
+		return false
+	return assert_eq(LevelLoader.last_error, "move_budget")
