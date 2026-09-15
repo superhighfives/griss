@@ -5,6 +5,7 @@ const CELL_SIZE: int = 60
 const BOARD_OFFSET: Vector2 = Vector2(120, 60)
 const CELL_MARGIN: float = 2.0
 const PIECE_MARGIN: float = 8.0
+const POWERUP_MARKER_SIZE: float = 24.0
 
 const COLOR_CELL: Color = Color(0.22, 0.22, 0.26)
 const COLOR_WALL: Color = Color(0.08, 0.08, 0.09)
@@ -13,18 +14,21 @@ const COLOR_PLAYER: Color = Color(0.2, 0.45, 0.9)
 const COLOR_ENEMY: Color = Color(0.8, 0.2, 0.2)
 const COLOR_HIGHLIGHT: Color = Color(1.0, 0.95, 0.3, 0.4)
 const COLOR_THREAT: Color = Color(0.9, 0.15, 0.15, 0.35)
+const COLOR_POWERUP: Color = Color(1.0, 0.85, 0.2, 0.9)
 
 var controller: GameController
 var _cell_nodes: Dictionary = {}
 var _piece_nodes: Dictionary = {}
 var _highlight_nodes: Array[ColorRect] = []
 var _threat_nodes: Array[ColorRect] = []
+var _powerup_nodes: Array[ColorRect] = []
 
 
 func setup(p_controller: GameController) -> void:
 	controller = p_controller
 	_build_cells()
 	_rebuild_threats()
+	_rebuild_powerups()
 	_rebuild_pieces()
 
 
@@ -42,6 +46,7 @@ func screen_to_grid(screen_pos: Vector2) -> Vector2i:
 
 func refresh() -> void:
 	_rebuild_threats()
+	_rebuild_powerups()
 	_rebuild_pieces()
 	clear_highlights()
 
@@ -81,6 +86,24 @@ func _rebuild_threats() -> void:
 		threat.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(threat)
 		_threat_nodes.append(threat)
+
+
+## A small centered marker per powerup tile, distinct from the threat
+## overlay's full-cell tint so the two read differently at a glance.
+## Rebuilt on every refresh() - the tile disappears the moment
+## Rules.apply_move() consumes it, and this is how that becomes visible.
+func _rebuild_powerups() -> void:
+	for marker in _powerup_nodes:
+		marker.queue_free()
+	_powerup_nodes = []
+	for pos: Vector2i in controller.state.powerups.keys():
+		var marker: ColorRect = ColorRect.new()
+		marker.size = Vector2(POWERUP_MARKER_SIZE, POWERUP_MARKER_SIZE)
+		marker.position = grid_to_screen(pos) + (Vector2(CELL_SIZE, CELL_SIZE) - marker.size) / 2.0
+		marker.color = COLOR_POWERUP
+		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(marker)
+		_powerup_nodes.append(marker)
 
 
 func _build_cells() -> void:

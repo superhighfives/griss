@@ -1,0 +1,10 @@
+{
+  "name": "Powerup Intro",
+  "width": 4,
+  "height": 12,
+  "move_budget": 9,
+  "player": { "kind": "PAWN", "pos": [1, 0] },
+  "walls": [],
+  "powerups": [{ "pos": [1, 2], "type": "promote" }],
+  "enemies": []
+}

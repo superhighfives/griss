@@ -1,20 +1,79 @@
 extends Node2D
 
-const LEVEL_PATH: String = "res://levels/01_first_steps.json"
 const DESIGN_SIZE: Vector2 = Vector2(480, 800)
+
+const LEVELS: Array[Dictionary] = [
+	{"path": "res://levels/01_first_steps.json", "label": "1. First Steps"},
+	{"path": "res://levels/02_under_threat.json", "label": "2. Under Threat"},
+	{"path": "res://levels/03_powerup_intro.json", "label": "3. Powerup Intro"},
+	{"path": "res://levels/04_point_of_no_return.json", "label": "4. Point of No Return"},
+	{"path": "res://levels/05_the_gauntlet.json", "label": "5. The Gauntlet"},
+	{"path": "res://levels/edge_case_boxed_in.json", "label": "Bonus: Boxed In"},
+]
 
 var controller: GameController
 var board_view: BoardView
 var input_controller: InputController
 var hud: Hud
 var selected_piece_id: int = -1
+var _level_select_buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	var level: Level = LevelLoader.load_from_file(LEVEL_PATH)
+	_show_level_select()
+	_center_in_safe_area()
+
+
+func _show_level_select() -> void:
+	for i in range(LEVELS.size()):
+		var entry: Dictionary = LEVELS[i]
+		var button: Button = Button.new()
+		button.text = entry["label"]
+		button.position = Vector2(140, 200 + i * 40)
+		button.size = Vector2(200, 32)
+		var path: String = entry["path"]
+		button.pressed.connect(func(): _on_level_selected(path))
+		$UI.add_child(button)
+		_level_select_buttons.append(button)
+
+
+func _clear_level_select() -> void:
+	for button in _level_select_buttons:
+		button.queue_free()
+	_level_select_buttons = []
+
+
+func _on_level_selected(path: String) -> void:
+	_clear_level_select()
+	_load_level(path)
+
+
+func _return_to_level_select() -> void:
+	_teardown_level()
+	_show_level_select()
+
+
+func _teardown_level() -> void:
+	if board_view != null:
+		board_view.queue_free()
+		board_view = null
+	if input_controller != null:
+		input_controller.queue_free()
+		input_controller = null
+	if hud != null:
+		hud.queue_free()
+		hud = null
+	controller = null
+	selected_piece_id = -1
+
+
+func _load_level(path: String) -> void:
+	var level: Level = LevelLoader.load_from_file(path)
 	if level == null:
-		push_error("Failed to load level %s: bad field '%s'" % [LEVEL_PATH, LevelLoader.last_error])
+		push_error("Failed to load level %s: bad field '%s'" % [path, LevelLoader.last_error])
 		return
+
+	_teardown_level()
 
 	controller = GameController.new()
 	controller.load_level(level)
@@ -31,11 +90,10 @@ func _ready() -> void:
 	hud = Hud.new()
 	$UI.add_child(hud)
 	hud.setup(controller, level.level_name)
+	hud.levels_requested.connect(_return_to_level_select)
 
 	controller.state_updated.connect(board_view.refresh)
 	controller.outcome_updated.connect(_on_outcome_updated)
-
-	_center_in_safe_area()
 
 
 # window/stretch/aspect is "expand", which fills the whole screen (no

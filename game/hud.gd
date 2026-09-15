@@ -1,11 +1,14 @@
 class_name Hud
 extends Control
 
+signal levels_requested
+
 var controller: GameController
 var moves_label: Label
 var status_label: Label
 var restart_button: Button
 var undo_button: Button
+var levels_button: Button
 
 
 func setup(p_controller: GameController, level_name: String) -> void:
@@ -38,6 +41,12 @@ func setup(p_controller: GameController, level_name: String) -> void:
 	undo_button.position = Vector2(360, 40)
 	undo_button.pressed.connect(controller.undo)
 	add_child(undo_button)
+
+	levels_button = Button.new()
+	levels_button.text = "Levels"
+	levels_button.position = Vector2(360, 74)
+	levels_button.pressed.connect(func(): levels_requested.emit())
+	add_child(levels_button)
 
 	controller.state_updated.connect(_on_state_updated)
 	controller.outcome_updated.connect(_on_outcome_updated)
