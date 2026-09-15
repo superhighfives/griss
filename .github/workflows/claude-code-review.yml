@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   review:
-    uses: superhighfives/control-room/.github/workflows/review.yml@3bd8cb942d2c2126cee514b90ce619551fa4a145 # main
+    uses: superhighfives/control-room/.github/workflows/review.yml@main
     with:
       runtime: none
     secrets:
