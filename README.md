@@ -111,6 +111,25 @@ Levels are hand-written JSON (`levels/*.json`), validated and loaded by
 out-of-bounds coordinates, overlapping entities, and unknown `kind` strings
 with the offending field name.
 
+## Development notes
+
+- **No `timeout` command on macOS.** Use a backgrounded process + `kill`,
+  or install `coreutils` for `gtimeout`, when you need a bounded Godot run.
+- **Synthetic mouse clicks (`cliclick`) work fine**, but some environments
+  are prone to window-focus/Space flakiness — a click can silently land on
+  the wrong window if focus wasn't freshly confirmed. Verify with a
+  temporary debug `print()` in the relevant `_input`/`_unhandled_input`
+  handler rather than trusting a screenshot if clicks seem to do nothing.
+  For pure game-logic checks with no rendering involved, drive
+  `GameController` headlessly instead: load a level, fetch the player
+  piece, call `get_legal_moves`/`try_move` in a loop, assert on
+  `controller.outcome`.
+- **This is an early-stage prototype, not a team project with a review
+  process to protect** — pushes go straight to `main`, no PR required.
+  [`superhighfives/control-room`](https://github.com/superhighfives/control-room)
+  is still installed and reviews any PR that does get opened
+  (`.github/workflows/claude-code-review.yml`), but it isn't a gate.
+
 ## iOS build & TestFlight
 
 Every push to `main` (docs-only changes excluded) runs
@@ -133,14 +152,6 @@ To trigger a build manually without a code change, use the workflow's
 gh workflow run testflight.yml
 ```
 
-### Repo conventions
-
-This is an early-stage prototype, not a team project with a review
-process to protect — pushes go straight to `main`, no PR required.
-[`superhighfives/control-room`](https://github.com/superhighfives/control-room)
-is still installed and reviews any PR that does get opened
-(`.github/workflows/claude-code-review.yml`), but it isn't a gate.
-
 ## Further reading
 
 - [`docs/PLAN.md`](docs/PLAN.md) — the original design brief: architecture
@@ -149,7 +160,5 @@ is still installed and reviews any PR that does get opened
 - [`plans/`](plans/README.md) — where the project currently stands and
   what's next: one milestone/feature spec per file, moving through a
   backlog → ready → in-progress → done lifecycle.
-- [`HANDOVER.md`](HANDOVER.md) — environment quirks and conventions for
-  whoever (human or agent) picks this up next.
 - [`docs/TESTFLIGHT_SETUP.md`](docs/TESTFLIGHT_SETUP.md) — the one-time
   manual runbook for standing up the TestFlight pipeline from scratch.

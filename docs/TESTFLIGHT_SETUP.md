@@ -105,9 +105,10 @@ A new build should appear under App Store Connect → TestFlight → iOS
 builds a few minutes after the workflow finishes (Apple's own processing
 takes a bit longer on top of that).
 
-This pipeline is proven working — see [`HANDOVER.md`](../HANDOVER.md)'s
-"iOS TestFlight pipeline" section for the (non-obvious) issue that took the
-longest to run down, in case something in this area breaks again.
+This pipeline is proven working — see
+[`plans/done/m0-m1-and-testflight-pipeline.md`](../plans/done/m0-m1-and-testflight-pipeline.md)
+for the (non-obvious) issue that took the longest to run down, in case
+something in this area breaks again.
 
 ## Deferred / not handled yet
 

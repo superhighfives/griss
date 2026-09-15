@@ -16,9 +16,9 @@ iPhone via TestFlight, automatically, on every push to `main`.
 ## Context
 
 This predates the `plans/` workflow — `docs/PLAN.md` served as the spec,
-and [`HANDOVER.md`](../../HANDOVER.md) tracked status until now. Recorded
-here retroactively so the historical record lives in the same place
-future work does.
+and a now-removed `HANDOVER.md` tracked status until this workflow
+replaced it. Recorded here retroactively so the historical record lives
+in the same place future work does.
 
 ## Overview
 
@@ -63,8 +63,7 @@ the Swift runtime dylibs, hanging forever on a keychain ACL prompt a
 headless session can never answer — `fastlane match`'s certificate import
 grants the `apple-tool:`/`apple:` keychain partition IDs but not
 `codesign:`. Fixed with fastlane's `setup_ci` (a dedicated, correctly
-provisioned CI keychain). See `HANDOVER.md`'s pipeline section for the
-full detail if this class of failure ever recurs.
+provisioned CI keychain).
 
 **On-device fixes**, found only once a real person tried the first real
 builds on a real phone:
