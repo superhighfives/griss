@@ -22,7 +22,7 @@ capabilities needed yet).
 
 appstoreconnect.apple.com → My Apps → **+** → New App:
 - Platform: iOS
-- Name: your choice (e.g. "Chess Lane")
+- Name: Griss
 - Bundle ID: `com.superhighfives.griss` (from step 2)
 - SKU: your choice, e.g. `griss-ios`
 - Primary language: your choice

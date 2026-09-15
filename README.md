@@ -1,4 +1,4 @@
-# Chess Lane
+# Griss
 
 [![TestFlight](https://github.com/superhighfives/griss/actions/workflows/testflight.yml/badge.svg)](https://github.com/superhighfives/griss/actions/workflows/testflight.yml)
 

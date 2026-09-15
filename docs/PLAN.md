@@ -1,4 +1,4 @@
-# Chess Lane — Godot Prototype Plan
+# Griss — Godot Prototype Plan
 
 A turn-based puzzle game: chess pieces traverse a narrow vertical grid to reach the far end. Pieces upgrade along the way.
 
