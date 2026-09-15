@@ -5,8 +5,9 @@ A turn-based puzzle game: chess pieces traverse a narrow vertical grid to reach 
 This document is the brief for a code agent. Follow the architecture constraints literally — they exist to keep the project agent-drivable (no editor wiring) and testable headlessly.
 
 This is the original design brief and stays as historical reference — active
-milestone specs now live in [`../plans/`](../plans/README.md) (see
-`ready/m2-pressure.md` for what M2 below became once M0/M1 shipped).
+milestone specs now live in [`../plans/`](../plans/README.md), one file per
+milestone: `done/` for M0–M3 (with an honest account of what actually shipped,
+deviations included), `ready/` for M4 onward.
 
 ---
 
