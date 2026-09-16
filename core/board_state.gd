@@ -46,11 +46,12 @@ func get_piece(id: int) -> Piece:
 	return null
 
 
-func get_player_piece() -> Piece:
+func get_player_pieces() -> Array[Piece]:
+	var result: Array[Piece] = []
 	for piece in pieces:
 		if piece.team == 0:
-			return piece
-	return null
+			result.append(piece)
+	return result
 
 
 func add_piece(kind: PieceKind.Kind, team: int, pos: Vector2i) -> Piece:

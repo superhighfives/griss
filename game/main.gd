@@ -8,6 +8,7 @@ const LEVELS: Array[Dictionary] = [
 	{"path": "res://levels/03_powerup_intro.json", "label": "3. Powerup Intro"},
 	{"path": "res://levels/04_point_of_no_return.json", "label": "4. Point of No Return"},
 	{"path": "res://levels/05_the_gauntlet.json", "label": "5. The Gauntlet"},
+	{"path": "res://levels/06_the_sacrifice.json", "label": "6. The Sacrifice"},
 	{"path": "res://levels/edge_case_boxed_in.json", "label": "Bonus: Boxed In"},
 ]
 
@@ -134,25 +135,32 @@ func _center_in_safe_area() -> void:
 func _on_cell_clicked(pos: Vector2i) -> void:
 	if controller.outcome != Rules.Outcome.ONGOING:
 		return
-	var player: Piece = controller.state.get_player_piece()
-	if player == null:
-		return
+
+	var clicked_player: Piece = _player_piece_at(pos)
 
 	if selected_piece_id == -1:
-		if player.pos == pos:
-			selected_piece_id = player.id
-			board_view.show_highlights(controller.get_legal_moves(player.id))
+		if clicked_player != null:
+			selected_piece_id = clicked_player.id
+			board_view.show_highlights(controller.get_legal_moves(selected_piece_id))
 		return
 
 	var legal: Array[Vector2i] = controller.get_legal_moves(selected_piece_id)
 	if legal.has(pos):
 		controller.try_move(selected_piece_id, pos)
 		selected_piece_id = -1
-	elif player.pos == pos:
-		board_view.show_highlights(controller.get_legal_moves(player.id))
+	elif clicked_player != null:
+		selected_piece_id = clicked_player.id
+		board_view.show_highlights(controller.get_legal_moves(selected_piece_id))
 	else:
 		selected_piece_id = -1
 		board_view.clear_highlights()
+
+
+func _player_piece_at(pos: Vector2i) -> Piece:
+	for player in controller.state.get_player_pieces():
+		if player.pos == pos:
+			return player
+	return null
 
 
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:

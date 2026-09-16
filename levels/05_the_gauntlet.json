@@ -3,7 +3,7 @@
   "width": 4,
   "height": 12,
   "move_budget": 9,
-  "player": { "kind": "PAWN", "pos": [1, 0] },
+  "players": [{ "kind": "PAWN", "pos": [1, 0] }],
   "walls": [[1, 3]],
   "powerups": [{ "pos": [1, 1], "type": "promote" }],
   "enemies": [{ "kind": "BISHOP", "pos": [1, 4] }]

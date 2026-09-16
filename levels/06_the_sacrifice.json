@@ -1,0 +1,13 @@
+{
+  "name": "The Sacrifice",
+  "width": 4,
+  "height": 12,
+  "move_budget": 18,
+  "players": [
+    { "kind": "PAWN", "pos": [0, 0] },
+    { "kind": "PAWN", "pos": [3, 0] }
+  ],
+  "walls": [],
+  "powerups": [],
+  "enemies": [{ "kind": "KNIGHT", "pos": [1, 6] }]
+}

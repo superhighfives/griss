@@ -62,8 +62,8 @@ func _on_outcome_updated(outcome: Rules.Outcome) -> void:
 	match outcome:
 		Rules.Outcome.WIN:
 			status_label.text = "WIN!"
-		Rules.Outcome.LOSS_THREATENED:
-			status_label.text = "LOSS - threatened"
+		Rules.Outcome.LOSS_ELIMINATED:
+			status_label.text = "LOSS - all pieces lost"
 		Rules.Outcome.LOSS_NO_MOVES:
 			status_label.text = "LOSS - out of moves"
 		_:

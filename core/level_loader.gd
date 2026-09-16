@@ -36,8 +36,8 @@ static func _load_from_dict(data: Dictionary) -> Level:
 		return _fail("height")
 	if not data.has("move_budget") or typeof(data["move_budget"]) != TYPE_FLOAT and typeof(data["move_budget"]) != TYPE_INT:
 		return _fail("move_budget")
-	if not data.has("player") or typeof(data["player"]) != TYPE_DICTIONARY:
-		return _fail("player")
+	if not data.has("players") or typeof(data["players"]) != TYPE_ARRAY or data["players"].is_empty():
+		return _fail("players")
 
 	var level: Level = Level.new()
 	level.level_name = String(data.get("name", ""))
@@ -50,18 +50,20 @@ static func _load_from_dict(data: Dictionary) -> Level:
 
 	var occupied: Dictionary = {}
 
-	var player_dict: Dictionary = data["player"]
-	if not player_dict.has("kind") or not player_dict.has("pos"):
-		return _fail("player")
-	var player_kind: PieceKind.Kind = PieceKind.kind_from_string(String(player_dict["kind"]))
-	if player_kind == -1:
-		return _fail("player.kind")
-	var player_pos: Vector2i = _parse_pos(player_dict["pos"])
-	if not _in_bounds(player_pos, level.width, level.height):
-		return _fail("player.pos")
-	level.player_kind = player_kind
-	level.player_pos = player_pos
-	occupied[player_pos] = true
+	level.players = []
+	for player_entry in data["players"]:
+		if typeof(player_entry) != TYPE_DICTIONARY or not player_entry.has("kind") or not player_entry.has("pos"):
+			return _fail("players")
+		var player_kind: PieceKind.Kind = PieceKind.kind_from_string(String(player_entry["kind"]))
+		if player_kind == -1:
+			return _fail("players.kind")
+		var player_pos: Vector2i = _parse_pos(player_entry["pos"])
+		if not _in_bounds(player_pos, level.width, level.height):
+			return _fail("players.pos")
+		if occupied.has(player_pos):
+			return _fail("players.pos")
+		occupied[player_pos] = true
+		level.players.append({"kind": player_kind, "pos": player_pos})
 
 	level.walls = []
 	for wall_entry in data.get("walls", []):
@@ -99,6 +101,11 @@ static func _load_from_dict(data: Dictionary) -> Level:
 			return _fail("enemies.pos")
 		occupied[enemy_pos] = true
 		level.enemies.append({"kind": enemy_kind, "pos": enemy_pos})
+
+	var mode: String = String(data.get("enemy_turn_mode", Rules.ENEMY_TURN_MODE_ONE))
+	if mode != Rules.ENEMY_TURN_MODE_ONE and mode != Rules.ENEMY_TURN_MODE_ALL:
+		return _fail("enemy_turn_mode")
+	level.enemy_turn_mode = mode
 
 	return level
 

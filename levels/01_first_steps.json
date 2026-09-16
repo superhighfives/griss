@@ -3,7 +3,7 @@
   "width": 4,
   "height": 12,
   "move_budget": 20,
-  "player": { "kind": "PAWN", "pos": [1, 0] },
+  "players": [{ "kind": "PAWN", "pos": [1, 0] }],
   "walls": [[0, 4], [3, 4], [0, 7], [3, 7]],
   "powerups": [],
   "enemies": []

@@ -8,11 +8,13 @@ var state: BoardState
 var initial_state: BoardState
 var undo_stack: Array[BoardState] = []
 var outcome: Rules.Outcome = Rules.Outcome.ONGOING
+var enemy_turn_mode: String = Rules.ENEMY_TURN_MODE_ONE
 
 
 func load_level(level: Level) -> void:
 	state = level.to_board_state()
 	initial_state = state.duplicate_state()
+	enemy_turn_mode = level.enemy_turn_mode
 	undo_stack = []
 	_finish_turn()
 
@@ -41,6 +43,17 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 		SoundHooks.on_capture()
 	if state.get_piece(piece_id).kind != kind_before:
 		SoundHooks.on_promotion()
+
+	# Only let the enemy team act if the player's own move didn't already
+	# end the game (e.g. reaching the goal row) - checked directly rather
+	# than through _finish_turn(), which is called once at the end so
+	# outcome is computed and both signals emitted exactly once per
+	# try_move(), reflecting the enemy turn's effect too.
+	if Rules.check_outcome(state) == Rules.Outcome.ONGOING:
+		var count_before_enemy_turn: int = state.pieces.size()
+		Rules.advance_enemies(state, enemy_turn_mode)
+		if state.pieces.size() < count_before_enemy_turn:
+			SoundHooks.on_capture()
 
 	_finish_turn()
 	return true

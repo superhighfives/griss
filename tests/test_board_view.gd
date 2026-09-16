@@ -58,8 +58,7 @@ static func _capture_level() -> Level:
 	level.width = 4
 	level.height = 4
 	level.move_budget = 10
-	level.player_kind = PieceKind.Kind.ROOK
-	level.player_pos = Vector2i(0, 0)
+	level.players = [{"kind": PieceKind.Kind.ROOK, "pos": Vector2i(0, 0)}]
 	level.walls = []
 	level.powerups = []
 	level.enemies = []
@@ -92,7 +91,7 @@ func test_piece_move_tween_is_bound_to_its_piece() -> bool:
 	await _tree().process_frame
 
 	var controller: GameController = board_view.controller
-	var player: Piece = controller.state.get_player_piece()
+	var player: Piece = controller.state.get_player_pieces()[0]
 	var body: ColorRect = board_view._piece_nodes[player.id]
 
 	# try_move() refreshes the view, which starts the position tween.

@@ -12,8 +12,7 @@ static func _instant_loss_level() -> Level:
 	level.width = 4
 	level.height = 4
 	level.move_budget = 0
-	level.player_kind = PieceKind.Kind.PAWN
-	level.player_pos = Vector2i(0, 0)
+	level.players = [{"kind": PieceKind.Kind.PAWN, "pos": Vector2i(0, 0)}]
 	level.walls = []
 	level.powerups = []
 	level.enemies = []
