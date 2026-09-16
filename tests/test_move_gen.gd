@@ -28,6 +28,45 @@ func test_pawn_blocked_by_piece() -> bool:
 	return assert_array_eq_unordered(moves, [], "pawn cannot capture forward")
 
 
+func test_pawn_captures_diagonally() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	pawn.has_moved = true
+	state.add_piece(PieceKind.Kind.KNIGHT, 1, Vector2i(0, 6))
+	state.add_piece(PieceKind.Kind.KNIGHT, 1, Vector2i(2, 6))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 6), Vector2i(0, 6), Vector2i(2, 6)],
+		"pawn can advance forward and capture either diagonal")
+
+
+func test_pawn_cannot_move_diagonally_onto_empty_square() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	pawn.has_moved = true
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 6)], "no diagonal move without an enemy to capture")
+
+
+func test_pawn_cannot_capture_diagonally_own_team() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	pawn.has_moved = true
+	state.add_piece(PieceKind.Kind.KNIGHT, 0, Vector2i(0, 6))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(1, 6)], "a friendly piece diagonally ahead cannot be captured")
+
+
+func test_pawn_can_capture_diagonally_even_when_blocked_straight_ahead() -> bool:
+	var state: BoardState = _empty_board()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	pawn.has_moved = true
+	state.add_piece(PieceKind.Kind.PAWN, 1, Vector2i(1, 6))
+	state.add_piece(PieceKind.Kind.KNIGHT, 1, Vector2i(2, 6))
+	var moves: Array[Vector2i] = MoveGen.legal_moves(state, pawn.id)
+	return assert_array_eq_unordered(moves, [Vector2i(2, 6)],
+		"blocked straight ahead, but a diagonal capture is still available")
+
+
 func test_pawn_first_move_can_advance_two_squares() -> bool:
 	var state: BoardState = _empty_board()
 	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))

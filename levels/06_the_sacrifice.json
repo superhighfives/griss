@@ -2,12 +2,15 @@
   "name": "The Sacrifice",
   "width": 4,
   "height": 12,
-  "move_budget": 18,
+  "move_budget": 20,
   "players": [
     { "kind": "PAWN", "pos": [0, 0] },
     { "kind": "PAWN", "pos": [3, 0] }
   ],
-  "walls": [],
+  "walls": [
+    [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5],
+    [2, 6], [2, 7], [2, 8], [2, 9], [2, 10], [2, 11]
+  ],
   "powerups": [],
-  "enemies": [{ "kind": "KNIGHT", "pos": [1, 6] }]
+  "enemies": [{ "kind": "ROOK", "pos": [1, 6] }]
 }
