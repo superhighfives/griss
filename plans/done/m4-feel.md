@@ -2,7 +2,7 @@
 title: M4 — Feel
 status: Complete
 created: 2026-09-15
-updated: 2026-09-15
+updated: 2026-09-16
 ---
 
 # M4 — Feel
@@ -54,6 +54,12 @@ genuinely animating, not just computing the right final value.
 `Tuning.HIGHLIGHT_PULSE_MIN_ALPHA` and `MAX_ALPHA`. The tween is owned by
 the highlight node itself, so `clear_highlights()`'s existing
 `queue_free()` is sufficient teardown — no separate cleanup needed.
+
+> **Correction (2026-09-16):** that last sentence was wrong, and it
+> crashed the iOS build. `create_tween()` binds the tween to the node it
+> is called on — `BoardView` here — not to the highlight, so the tween
+> outlived `clear_highlights()` and looped forever on a freed target.
+> Fixed in [`fix-ios-tween-crash.md`](fix-ios-tween-crash.md).
 
 **Sound hooks** (`game/sound_hooks.gd`): a `SoundHooks` static-method
 class, every method a no-op `pass`, called from `GameController` at the

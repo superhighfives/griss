@@ -56,11 +56,22 @@ func clear_highlights() -> void:
 
 
 ## Subtle looping alpha pulse so legal-move highlights read as interactive
-## rather than static paint. The tween is owned by (and dies with) the
-## highlight node itself - clear_highlights()'s queue_free() is enough to
-## stop it, no separate teardown needed.
+## rather than static paint.
+##
+## The tween is created on the highlight, not on self: create_tween() binds
+## the tween to the node it's called on, so self.create_tween() would bind
+## it to BoardView - which outlives clear_highlights(). The orphaned tween
+## then steps a freed target forever, and that is fatal rather than merely
+## wasteful: set_loops() makes it infinite, a PropertyTweener whose target
+## is gone returns immediately without consuming any delta, so Tween::step()
+## loops without end. Debug builds detect this and bail out ("Infinite loop
+## detected"), which is why it survived editor testing - but that check is
+## compiled out of export templates (#ifdef DEBUG_ENABLED), so on a release
+## iOS build the main thread wedges on the first frame after a move and the
+## watchdog kills the app. Bound to the highlight, the tween dies with it
+## and clear_highlights()'s queue_free() genuinely is enough teardown.
 func _pulse_highlight(highlight: ColorRect) -> void:
-	var tween: Tween = create_tween()
+	var tween: Tween = highlight.create_tween()
 	tween.set_loops()
 	tween.tween_property(highlight, "color:a", Tuning.HIGHLIGHT_PULSE_MAX_ALPHA, Tuning.HIGHLIGHT_PULSE_HALF_DURATION)
 	tween.tween_property(highlight, "color:a", Tuning.HIGHLIGHT_PULSE_MIN_ALPHA, Tuning.HIGHLIGHT_PULSE_HALF_DURATION)
@@ -165,7 +176,12 @@ func _update_piece_node(piece: Piece) -> void:
 	var body: ColorRect = _piece_nodes[piece.id]
 	var target_pos: Vector2 = grid_to_screen(piece.pos) + Vector2(Tuning.PIECE_MARGIN, Tuning.PIECE_MARGIN) / 2.0
 	if body.position != target_pos:
-		var tween: Tween = create_tween()
+		# Bound to the piece it animates, for the same reason as
+		# _pulse_highlight: a piece captured mid-tween is queue_free()d by
+		# _rebuild_pieces(), and the tween should go with it. This one can't
+		# hang the way the pulse could (it doesn't loop, so a dead target
+		# just ends it), but the binding rule is worth applying uniformly.
+		var tween: Tween = body.create_tween()
 		tween.tween_property(body, "position", target_pos, Tuning.MOVE_TWEEN_DURATION)
 
 	var label: Label = body.get_child(0)
