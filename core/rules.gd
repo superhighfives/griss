@@ -6,13 +6,16 @@ enum Outcome { ONGOING, WIN, LOSS_ELIMINATED, LOSS_NO_MOVES }
 const ENEMY_TURN_MODE_ONE: String = "one"
 const ENEMY_TURN_MODE_ALL: String = "all"
 
+const CARD_PROMOTE: String = "promote"
+const CARD_PUSH_BACK: String = "push_back"
+
 
 ## Applies a move for the piece to `dest` in place, mutating `state`.
 ## Caller is responsible for snapshotting state beforehand if undo is needed.
 ## Returns true if the move was legal and applied. Shared by both player
 ## moves (GameController) and enemy moves (advance_enemies below) - move
-## budget and powerup consumption are player-only (team 0), everything
-## else (capture, has_moved) applies to any piece.
+## budget and powerup pickup are player-only (team 0), everything else
+## (capture, has_moved) applies to any piece.
 static func apply_move(state: BoardState, piece_id: int, dest: Vector2i) -> bool:
 	var piece: Piece = state.get_piece(piece_id)
 	if piece == null:
@@ -31,12 +34,73 @@ static func apply_move(state: BoardState, piece_id: int, dest: Vector2i) -> bool
 	if piece.team == 0:
 		state.moves_used += 1
 		if state.powerups.has(dest):
-			var powerup_type: String = state.powerups[dest]
-			if powerup_type == "promote":
-				piece.kind = PieceKind.next_in_promotion_track(piece.kind)
+			# Grants a card rather than applying an effect immediately -
+			# see plans/done/m6-cards.md. play_card() below is the only
+			# thing that ever changes a piece's kind or pushes enemies now.
+			state.player_hand.append(state.powerups[dest])
 			state.powerups.erase(dest)
 
 	return true
+
+
+## Plays one card from state.player_hand, mutating state in place. Returns
+## false (no mutation) if a card was already played this turn or the hand
+## doesn't contain card_type - callers don't need to check either
+## themselves first. GameController resets card_played_this_turn once the
+## player's move ends the turn, mirroring how moves_used only resets on
+## restart().
+static func play_card(state: BoardState, card_type: String, target_piece_id: int = -1) -> bool:
+	if state.card_played_this_turn or not state.player_hand.has(card_type):
+		return false
+
+	match card_type:
+		CARD_PROMOTE:
+			var target: Piece = state.get_piece(target_piece_id)
+			if target == null or target.team != 0:
+				return false
+			target.kind = PieceKind.next_in_promotion_track(target.kind)
+		CARD_PUSH_BACK:
+			_push_back_enemies(state)
+		_:
+			return false
+
+	state.player_hand.erase(card_type)
+	state.card_played_this_turn = true
+	return true
+
+
+## Pushes every enemy one square directly away from whichever player
+## piece is nearest to it - a diagonal step if the nearer player piece
+## isn't purely aligned orthogonally. An enemy with no player pieces left
+## to push away from, or whose pushed-back square is out of bounds, a
+## wall, or occupied, simply doesn't move - a soft per-enemy failure, not
+## an all-or-nothing effect for the whole card.
+static func _push_back_enemies(state: BoardState) -> void:
+	for enemy in state.pieces:
+		if enemy.team != 1:
+			continue
+		var nearest: Piece = _nearest_player(state, enemy.pos)
+		if nearest == null:
+			continue
+		var delta: Vector2i = enemy.pos - nearest.pos
+		var away: Vector2i = Vector2i(sign(delta.x), sign(delta.y))
+		if away == Vector2i.ZERO:
+			continue
+		var dest: Vector2i = enemy.pos + away
+		if not state.is_in_bounds(dest) or state.is_wall(dest) or state.piece_at(dest) != null:
+			continue
+		enemy.pos = dest
+
+
+static func _nearest_player(state: BoardState, from: Vector2i) -> Piece:
+	var best: Piece = null
+	var best_distance: int = -1
+	for player in state.get_player_pieces():
+		var distance: int = abs(player.pos.x - from.x) + abs(player.pos.y - from.y)
+		if best == null or distance < best_distance:
+			best = player
+			best_distance = distance
+	return best
 
 
 ## Moves the enemy team according to `mode`:
@@ -105,12 +169,10 @@ static func _best_move_for(state: BoardState, enemy: Piece) -> Dictionary:
 
 
 static func _distance_to_nearest_player(state: BoardState, from: Vector2i) -> int:
-	var best: int = -1
-	for player in state.get_player_pieces():
-		var distance: int = abs(player.pos.x - from.x) + abs(player.pos.y - from.y)
-		if best == -1 or distance < best:
-			best = distance
-	return best
+	var nearest: Piece = _nearest_player(state, from)
+	if nearest == null:
+		return -1
+	return abs(nearest.pos.x - from.x) + abs(nearest.pos.y - from.y)
 
 
 ## A player piece on the goal row wins immediately, even with other

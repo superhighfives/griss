@@ -2,6 +2,10 @@ class_name Hud
 extends Control
 
 signal levels_requested
+## Fired when a targeted card (currently just Promote) is pressed - the
+## card isn't played yet, main.gd still needs a piece to target. Untargeted
+## cards (Push Back) are played immediately from here instead.
+signal card_target_requested(card_type: String)
 
 var controller: GameController
 var moves_label: Label
@@ -9,6 +13,7 @@ var status_label: Label
 var restart_button: Button
 var undo_button: Button
 var levels_button: Button
+var card_buttons: Array[Button] = []
 
 
 func setup(p_controller: GameController, level_name: String) -> void:
@@ -56,6 +61,50 @@ func setup(p_controller: GameController, level_name: String) -> void:
 
 func _on_state_updated() -> void:
 	moves_label.text = "Moves: %d / %d" % [controller.state.moves_used, controller.state.move_budget]
+	_rebuild_hand()
+
+
+## Card buttons are rebuilt from scratch on every state change rather than
+## diffed - the hand is at most a couple of entries, and state_updated
+## already fires on every move/card play, so this stays cheap and avoids
+## tracking per-card-type button identity across turns.
+func _rebuild_hand() -> void:
+	for button in card_buttons:
+		button.queue_free()
+	card_buttons = []
+
+	var counts: Dictionary = {}
+	for card_type in controller.state.player_hand:
+		counts[card_type] = counts.get(card_type, 0) + 1
+
+	var i: int = 0
+	for card_type in counts:
+		var button: Button = Button.new()
+		var count: int = counts[card_type]
+		button.text = "%s%s" % [_card_label(card_type), (" x%d" % count) if count > 1 else ""]
+		button.position = Vector2(16, 64 + i * 34)
+		button.disabled = controller.state.card_played_this_turn
+		button.pressed.connect(func(): _on_card_pressed(card_type))
+		add_child(button)
+		card_buttons.append(button)
+		i += 1
+
+
+func _card_label(card_type: String) -> String:
+	match card_type:
+		Rules.CARD_PROMOTE:
+			return "Promote"
+		Rules.CARD_PUSH_BACK:
+			return "Push Back"
+		_:
+			return card_type
+
+
+func _on_card_pressed(card_type: String) -> void:
+	if card_type == Rules.CARD_PROMOTE:
+		card_target_requested.emit(card_type)
+	else:
+		controller.try_play_card(card_type)
 
 
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:

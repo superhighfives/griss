@@ -44,14 +44,73 @@ func test_apply_move_does_not_count_enemy_moves_against_budget() -> bool:
 	return assert_eq(state.moves_used, 0, "only player (team 0) moves count against move_budget")
 
 
-func test_promotion_track_advances_and_consumes_tile() -> bool:
+func test_powerup_pickup_adds_card_to_hand() -> bool:
 	var state: BoardState = _fresh_state()
 	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
 	state.powerups[Vector2i(1, 1)] = "promote"
 	Rules.apply_move(state, pawn.id, Vector2i(1, 1))
-	if not assert_eq(pawn.kind, PieceKind.Kind.KNIGHT, "pawn promotes to knight"):
+	if not assert_eq(pawn.kind, PieceKind.Kind.PAWN, "picking up the tile does not promote by itself"):
+		return false
+	if not assert_has(state.player_hand, "promote", "tile grants a card"):
 		return false
 	return assert_not_has(state.powerups, Vector2i(1, 1), "powerup tile consumed")
+
+
+func test_play_card_promote_advances_kind_and_consumes_card() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	state.player_hand = ["promote"]
+	var applied: bool = Rules.play_card(state, Rules.CARD_PROMOTE, pawn.id)
+	if not assert_true(applied, "play_card should succeed"):
+		return false
+	if not assert_eq(pawn.kind, PieceKind.Kind.KNIGHT, "pawn promotes to knight"):
+		return false
+	return assert_not_has(state.player_hand, "promote", "card consumed")
+
+
+func test_play_card_fails_without_the_card_in_hand() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	return assert_false(Rules.play_card(state, Rules.CARD_PROMOTE, pawn.id), "cannot play a card not in hand")
+
+
+func test_play_card_fails_after_a_card_already_played_this_turn() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	state.player_hand = ["promote", "promote"]
+	Rules.play_card(state, Rules.CARD_PROMOTE, pawn.id)
+	return assert_false(Rules.play_card(state, Rules.CARD_PROMOTE, pawn.id), "only one card per turn, even with a spare copy in hand")
+
+
+func test_play_card_promote_requires_a_player_piece_target() -> bool:
+	var state: BoardState = _fresh_state()
+	var enemy: Piece = state.add_piece(PieceKind.Kind.PAWN, 1, Vector2i(2, 2))
+	state.player_hand = ["promote"]
+	var applied: bool = Rules.play_card(state, Rules.CARD_PROMOTE, enemy.id)
+	if not assert_false(applied, "cannot target an enemy piece"):
+		return false
+	return assert_has(state.player_hand, "promote", "failed play does not consume the card")
+
+
+func test_play_card_push_back_moves_enemy_away_from_nearest_player() -> bool:
+	var state: BoardState = _fresh_state()
+	state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	var enemy: Piece = state.add_piece(PieceKind.Kind.ROOK, 1, Vector2i(1, 3))
+	state.player_hand = ["push_back"]
+	var applied: bool = Rules.play_card(state, Rules.CARD_PUSH_BACK)
+	if not assert_true(applied, "play_card should succeed"):
+		return false
+	return assert_eq(enemy.pos, Vector2i(1, 4), "enemy pushed one square further from the player")
+
+
+func test_play_card_push_back_skips_enemy_blocked_by_wall() -> bool:
+	var state: BoardState = _fresh_state()
+	state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 0))
+	var enemy: Piece = state.add_piece(PieceKind.Kind.ROOK, 1, Vector2i(1, 3))
+	state.walls[Vector2i(1, 4)] = true
+	state.player_hand = ["push_back"]
+	Rules.play_card(state, Rules.CARD_PUSH_BACK)
+	return assert_eq(enemy.pos, Vector2i(1, 3), "enemy stays put when the push-back square is a wall")
 
 
 func test_promotion_track_full_sequence() -> bool:
@@ -65,14 +124,16 @@ func test_promotion_track_full_sequence() -> bool:
 	return true
 
 
-func test_promotion_queen_is_terminal() -> bool:
+func test_play_card_promote_queen_is_terminal() -> bool:
 	var state: BoardState = _fresh_state()
 	var queen: Piece = state.add_piece(PieceKind.Kind.QUEEN, 0, Vector2i(1, 0))
-	state.powerups[Vector2i(1, 1)] = "promote"
-	Rules.apply_move(state, queen.id, Vector2i(1, 1))
+	state.player_hand = ["promote"]
+	var applied: bool = Rules.play_card(state, Rules.CARD_PROMOTE, queen.id)
+	if not assert_true(applied, "play_card should still succeed on a terminal target"):
+		return false
 	if not assert_eq(queen.kind, PieceKind.Kind.QUEEN, "queen stays queen"):
 		return false
-	return assert_not_has(state.powerups, Vector2i(1, 1), "tile still consumed on terminal promotion")
+	return assert_not_has(state.player_hand, "promote", "card still consumed on a terminal promotion")
 
 
 func test_outcome_ongoing() -> bool:

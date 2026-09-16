@@ -25,12 +25,30 @@ func get_legal_moves(piece_id: int) -> Array[Vector2i]:
 	return MoveGen.legal_moves(state, piece_id)
 
 
+## Plays a card from the current hand. Does not end the turn or let the
+## enemy team act - a turn is one card (optional) plus one move, and the
+## move (try_move()) is what ends it. Snapshots for undo just like
+## try_move() does, so undoing a move also undoes a card played earlier
+## in the same turn if the player chains Undo.
+func try_play_card(card_type: String, target_piece_id: int = -1) -> bool:
+	if outcome != Rules.Outcome.ONGOING:
+		return false
+	undo_stack.append(state.duplicate_state())
+	var applied: bool = Rules.play_card(state, card_type, target_piece_id)
+	if not applied:
+		undo_stack.pop_back()
+		return false
+	SoundHooks.on_card_played(card_type)
+	if card_type == Rules.CARD_PROMOTE:
+		SoundHooks.on_promotion()
+	state_updated.emit()
+	return true
+
+
 func try_move(piece_id: int, dest: Vector2i) -> bool:
 	if outcome != Rules.Outcome.ONGOING:
 		return false
 	undo_stack.append(state.duplicate_state())
-	var piece_before: Piece = state.get_piece(piece_id)
-	var kind_before: PieceKind.Kind = piece_before.kind
 	var piece_count_before: int = state.pieces.size()
 
 	var applied: bool = Rules.apply_move(state, piece_id, dest)
@@ -41,8 +59,6 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 	SoundHooks.on_move()
 	if state.pieces.size() < piece_count_before:
 		SoundHooks.on_capture()
-	if state.get_piece(piece_id).kind != kind_before:
-		SoundHooks.on_promotion()
 
 	# Only let the enemy team act if the player's own move didn't already
 	# end the game (e.g. reaching the goal row) - checked directly rather
@@ -54,6 +70,9 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 		Rules.advance_enemies(state, enemy_turn_mode)
 		if state.pieces.size() < count_before_enemy_turn:
 			SoundHooks.on_capture()
+
+	# The move ends the turn - a fresh card play is available next turn.
+	state.card_played_this_turn = false
 
 	_finish_turn()
 	return true

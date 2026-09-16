@@ -9,6 +9,7 @@ const LEVELS: Array[Dictionary] = [
 	{"path": "res://levels/04_point_of_no_return.json", "label": "4. Point of No Return"},
 	{"path": "res://levels/05_the_gauntlet.json", "label": "5. The Gauntlet"},
 	{"path": "res://levels/06_the_sacrifice.json", "label": "6. The Sacrifice"},
+	{"path": "res://levels/07_the_shove.json", "label": "7. The Shove"},
 	{"path": "res://levels/edge_case_boxed_in.json", "label": "Bonus: Boxed In"},
 ]
 
@@ -17,6 +18,7 @@ var board_view: BoardView
 var input_controller: InputController
 var hud: Hud
 var selected_piece_id: int = -1
+var _pending_card_type: String = ""
 var _level_select_buttons: Array[Button] = []
 
 
@@ -66,6 +68,7 @@ func _teardown_level() -> void:
 		hud = null
 	controller = null
 	selected_piece_id = -1
+	_pending_card_type = ""
 
 
 func _load_level(path: String) -> void:
@@ -92,6 +95,7 @@ func _load_level(path: String) -> void:
 	$UI.add_child(hud)
 	hud.setup(controller, level.level_name)
 	hud.levels_requested.connect(_return_to_level_select)
+	hud.card_target_requested.connect(_on_card_target_requested)
 
 	controller.state_updated.connect(board_view.refresh)
 	controller.outcome_updated.connect(_on_outcome_updated)
@@ -132,11 +136,23 @@ func _center_in_safe_area() -> void:
 	$UI.offset.y = offset_y
 
 
+func _on_card_target_requested(card_type: String) -> void:
+	_pending_card_type = card_type
+	selected_piece_id = -1
+	board_view.clear_highlights()
+
+
 func _on_cell_clicked(pos: Vector2i) -> void:
 	if controller.outcome != Rules.Outcome.ONGOING:
 		return
 
 	var clicked_player: Piece = _player_piece_at(pos)
+
+	if _pending_card_type != "":
+		if clicked_player != null:
+			controller.try_play_card(_pending_card_type, clicked_player.id)
+		_pending_card_type = ""
+		return
 
 	if selected_piece_id == -1:
 		if clicked_player != null:
@@ -166,4 +182,5 @@ func _player_piece_at(pos: Vector2i) -> Piece:
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:
 	if outcome != Rules.Outcome.ONGOING:
 		selected_piece_id = -1
+		_pending_card_type = ""
 		board_view.clear_highlights()

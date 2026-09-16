@@ -4,11 +4,13 @@ extends RefCounted
 var width: int
 var height: int
 var walls: Dictionary       # Vector2i -> true (used as a set)
-var powerups: Dictionary    # Vector2i -> String ("promote")
+var powerups: Dictionary    # Vector2i -> String ("promote", "push_back")
 var pieces: Array[Piece]
 var goal_row: int
 var moves_used: int
 var move_budget: int
+var player_hand: Array[String]   # card type strings held, e.g. "promote"
+var card_played_this_turn: bool
 
 var _next_piece_id: int = 0
 
@@ -22,6 +24,8 @@ func _init(p_width: int = 4, p_height: int = 12) -> void:
 	goal_row = p_height - 1
 	moves_used = 0
 	move_budget = 0
+	player_hand = []
+	card_played_this_turn = false
 
 
 func is_in_bounds(pos: Vector2i) -> bool:
@@ -76,6 +80,8 @@ func duplicate_state() -> BoardState:
 	copy._next_piece_id = _next_piece_id
 	copy.walls = walls.duplicate(true)
 	copy.powerups = powerups.duplicate(true)
+	copy.player_hand = player_hand.duplicate()
+	copy.card_played_this_turn = card_played_this_turn
 	copy.pieces = []
 	for piece in pieces:
 		copy.pieces.append(piece.duplicate_piece())

@@ -85,7 +85,10 @@ static func _load_from_dict(data: Dictionary) -> Level:
 		if occupied.has(powerup_pos):
 			return _fail("powerups")
 		occupied[powerup_pos] = true
-		level.powerups.append({"pos": powerup_pos, "type": String(powerup_entry["type"])})
+		var powerup_type: String = String(powerup_entry["type"])
+		if powerup_type != Rules.CARD_PROMOTE and powerup_type != Rules.CARD_PUSH_BACK:
+			return _fail("powerups.type")
+		level.powerups.append({"pos": powerup_pos, "type": powerup_type})
 
 	level.enemies = []
 	for enemy_entry in data.get("enemies", []):

@@ -18,6 +18,10 @@ static func on_promotion() -> void:
 	pass
 
 
+static func on_card_played(card_type: String) -> void:
+	pass
+
+
 static func on_win() -> void:
 	pass
 
