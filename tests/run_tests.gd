@@ -4,6 +4,14 @@ extends SceneTree
 ## func test_*() on it, prints failures, and exits non-zero if any failed.
 ## Run with:
 ##   godot --headless --path . --script res://tests/run_tests.gd
+##
+## A test may be a coroutine (any test that awaits, e.g. to let frames run so
+## Tweens actually step - see tests/test_board_view.gd). Such a call hands back
+## a GDScriptFunctionState instead of the bool, so wait on its `completed`
+## signal for the real result. GDScriptFunctionState has no script-visible type
+## name, hence the get_class() check. Awaiting makes _initialize() itself a
+## coroutine, which is why quit() is reached only after the last test resumes
+## rather than before the tree has ticked at all.
 
 
 func _initialize() -> void:
@@ -39,9 +47,10 @@ func _initialize() -> void:
 			var error: String = ""
 			if instance.has_method("before_each"):
 				instance.call("before_each")
-			var ok: bool = instance.callv(method_name, [])
-			if ok == null:
-				ok = true
+			var result: Variant = instance.callv(method_name, [])
+			if result is Object and (result as Object).get_class() == "GDScriptFunctionState":
+				result = await (result as Object).completed
+			var ok: bool = true if result == null else bool(result)
 			if ok:
 				total_passed += 1
 			else:
