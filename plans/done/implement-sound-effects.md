@@ -146,11 +146,13 @@ layer of the original bug:
   every layer below could be correct while the game stayed silent — the same
   bug, one level up.
 
-All three were verified by mutation, along with the rest of the suite. Six
-mutations, six catches: reverting the hooks to `pass`; deleting
+All three were verified by mutation, along with the rest of the suite. Seven
+mutations, seven catches: reverting the hooks to `pass`; deleting
 `SoundHooks.on_move()` from `try_move()`; dropping the `attach()` call, the
-`add_child()`, or the `_setup_sound()` call from `main.gd`; and making the
-bank generate silence. Each failed the test you would want it to.
+`add_child()`, or the `_setup_sound()` call from `main.gd`; making the bank
+generate silence; and building no voices at all. Each failed the test you
+would want it to. The last of those is the one added after review — before
+the fix below it would have passed the voice-pool test vacuously.
 
 ### Deviations and things found along the way
 
@@ -169,10 +171,33 @@ passing one of the mutations. It now reads every fact it needs into plain
 values before the teardown. Worth remembering: `assert_not_null()` on a node
 says nothing about whether that node was ever there.
 
-**`_ready()` is not synchronous under the test runner.** `add_child()` on an
-instantiated scene does not run `_ready()` right away there — the runner adds
-nodes before the tree starts processing — so the main-scene test has to let a
-frame pass first, which makes it a coroutine.
+**`_ready()` is not synchronous under the test runner, and the first version
+of that finding was wrong in a way worth recording.** It was written as being
+about instantiated scenes. It isn't: `add_child()` runs `_ready()` straight
+away only once the tree has started processing frames, and tests begin inside
+`SceneTree._initialize()`, before any frame has happened. A plain `Node.new()`
+is deferred there exactly like a `PackedScene` is.
+
+Three tests here add a node and then read state that `_ready()` sets up, and
+all three passed anyway — because an earlier test in the file awaits a timer,
+which pumps the tree and makes everything after it work. That is the nasty
+shape of this: the suite is green, each test looks self-contained, and the
+thing holding it up is an unrelated test's `await`. Delete or reorder that one
+test and `test_playback_is_disabled_without_an_audio_device` starts failing,
+while `test_voice_pool_hands_out_distinct_players` would have gone on passing
+over an empty pool, since `VOICE_COUNT` is a `const` and reads 6 whether or
+not `_ready()` built anything.
+
+So each test now waits for itself (`_ready_tick()`), and the pool test sizes
+itself off `_voices` and checks that against `VOICE_COUNT` rather than
+trusting the constant. Verified by running `tests/test_sfx.gd` both alone and
+alone-with-the-awaiting-test-deleted; the second case failed before this and
+passes now.
+
+Caught in review by `control-room-review[bot]`, which asked whether a bare
+`Sfx.new()` really had its `_ready()` run before the assertions read it. It
+did not, and reasoning backwards from "the suite is green" was the wrong way
+to answer that — the probe that settles it is three lines.
 
 **Releasing playbacks needs a mix, not just a `stop()`.** The tests that do
 force real playback have to stop their voices *and* let a timer tick before

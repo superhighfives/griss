@@ -275,8 +275,27 @@ func test_hooks_are_silent_no_ops_with_nothing_attached() -> bool:
 func _make_sfx() -> Sfx:
 	var sfx: Sfx = Sfx.new()
 	_tree().root.add_child(sfx)
+	await _ready_tick()
 	sfx.enabled = true
 	return sfx
+
+
+## Wait for a node just added to the tree to have run _ready().
+##
+## add_child() only calls _ready() straight away once the tree has started
+## processing frames. Tests begin inside SceneTree._initialize(), before any
+## frame has happened, so there a freshly added node's _ready() is deferred -
+## and this is true of a plain Node.new() just as much as of an instantiated
+## PackedScene. Awaiting a frame is what makes the difference, so any test
+## that adds a node and then reads state _ready() sets up has to do it.
+##
+## It is easy to get away with skipping this: any earlier test that awaits
+## anything pumps the tree and makes every test after it look fine. That is
+## exactly why each test here waits for itself rather than relying on the one
+## before it - running this file alone, or reordering it, must not change what
+## these tests mean.
+func _ready_tick() -> void:
+	await _tree().process_frame
 
 
 ## Stop every voice, let the audio server tick once, then free.
@@ -305,6 +324,7 @@ func test_playback_is_disabled_without_an_audio_device() -> bool:
 
 	var sfx: Sfx = Sfx.new()
 	_tree().root.add_child(sfx)
+	await _ready_tick()
 	var was_enabled: bool = sfx.enabled
 	sfx.play(SfxBank.MOVE)
 	var any_playing: bool = false
@@ -320,7 +340,7 @@ func test_playback_is_disabled_without_an_audio_device() -> bool:
 ## The path the whole change exists for: a hook's sound name reaches a real
 ## player, with the matching stream on it, and that player is sounding.
 func test_play_puts_the_named_stream_on_a_sounding_voice() -> bool:
-	var sfx: Node = _make_sfx()
+	var sfx: Sfx = await _make_sfx()
 	sfx.play(SfxBank.CAPTURE)
 
 	var sounding: Array = []
@@ -340,8 +360,11 @@ func test_play_puts_the_named_stream_on_a_sounding_voice() -> bool:
 ## other off. Claiming voices while the earlier ones are still sounding must
 ## hand back distinct players, up to the pool size.
 func test_voice_pool_hands_out_distinct_players() -> bool:
-	var sfx: Node = _make_sfx()
-	var voice_count: int = sfx.VOICE_COUNT
+	var sfx: Sfx = await _make_sfx()
+	# Against the pool that was actually built, not against the constant:
+	# VOICE_COUNT reads 6 whether or not _ready() has run, so trusting it would
+	# let this test pass over an empty pool without claiming anything.
+	var voice_count: int = sfx._voices.size()
 
 	var ok: bool = true
 	var claimed: Array = []
@@ -359,5 +382,7 @@ func test_voice_pool_hands_out_distinct_players() -> bool:
 	await _release_sfx(sfx)
 
 	if not ok:
+		return false
+	if not assert_eq(voice_count, Sfx.VOICE_COUNT, "the pool should have been built by _ready()"):
 		return false
 	return assert_eq(claimed.size(), voice_count, "should have claimed every voice")
