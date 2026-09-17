@@ -31,7 +31,11 @@ func setup(p_controller: GameController, level_name: String) -> void:
 	add_child(moves_label)
 
 	status_label = Label.new()
-	status_label.position = Vector2(150, 8)
+	# Second row, beside the move counter: the status line now says
+	# something during ordinary play ("Blocked - play a card"), not only at
+	# the end of one, and on the top row a level name of any length runs
+	# straight into it.
+	status_label.position = Vector2(150, 32)
 	status_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
 	add_child(status_label)
 
@@ -107,6 +111,12 @@ func _on_card_pressed(card_type: String) -> void:
 		controller.try_play_card(card_type)
 
 
+## Every state change that can reach the HUD goes through
+## GameController._finish_turn(), which recomputes the outcome and emits
+## both signals together - playing a card included, since a card play can
+## now end the game on its own. So this runs on every change, and the
+## ONGOING branch below is free to describe the current position rather
+## than just blanking the label.
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:
 	match outcome:
 		Rules.Outcome.WIN:
@@ -116,4 +126,8 @@ func _on_outcome_updated(outcome: Rules.Outcome) -> void:
 		Rules.Outcome.LOSS_NO_MOVES:
 			status_label.text = "LOSS - out of moves"
 		_:
-			status_label.text = ""
+			# Being blocked with a card in hand that would free the piece
+			# is no longer a loss, but with no highlighted move to click it
+			# reads exactly like one - so say what the way out is. See
+			# plans/done/blocked-with-a-card-is-not-a-loss.md.
+			status_label.text = "Blocked - play a card" if Rules.player_must_play_card(controller.state) else ""

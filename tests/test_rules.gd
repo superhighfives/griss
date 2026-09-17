@@ -275,3 +275,92 @@ func test_advance_enemies_and_resolve_stalemate_stays_stuck_if_enemy_also_cannot
 	if not assert_eq(enemy.pos, Vector2i(1, 6), "an enemy with no legal moves of its own never moves"):
 		return false
 	return assert_eq(Rules.check_outcome(state), Rules.Outcome.LOSS_NO_MOVES, "a true deadlock is still a loss")
+
+
+## A piece with nowhere to go is only finished if nothing in hand can
+## change that. A pawn walled in straight ahead has no legal move at all,
+## but the Promote card in hand turns it into a knight, which does - so
+## the state is still ONGOING, and the player gets to play the card.
+func test_outcome_ongoing_when_blocked_but_a_card_would_free_the_piece() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.walls[Vector2i(1, 6)] = true
+	if not assert_true(MoveGen.legal_moves(state, pawn.id).is_empty(), "the pawn really is stuck as it stands"):
+		return false
+	state.player_hand.append(Rules.CARD_PROMOTE)
+	return assert_eq(Rules.check_outcome(state), Rules.Outcome.ONGOING,
+		"blocked with a card that frees the piece is not a loss")
+
+
+## The same block, but with a card that can't do anything about it: Push
+## Back with no enemies on the board leaves the pawn exactly as stuck as
+## it was. Holding *a* card isn't the reprieve - holding one that gives a
+## move back is.
+func test_outcome_loss_no_moves_when_the_card_in_hand_cannot_free_the_piece() -> bool:
+	var state: BoardState = _fresh_state()
+	state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.walls[Vector2i(1, 6)] = true
+	state.player_hand.append(Rules.CARD_PUSH_BACK)
+	return assert_eq(Rules.check_outcome(state), Rules.Outcome.LOSS_NO_MOVES,
+		"a card that changes nothing does not keep the game alive")
+
+
+## A turn is one card plus one move, and only a move ends the turn. So a
+## player who has already played their card this turn and still can't
+## move has genuinely run out - nothing can reset card_played_this_turn
+## for them - and that is still a loss, even with a spare card in hand.
+func test_outcome_loss_no_moves_when_this_turns_card_is_already_spent() -> bool:
+	var state: BoardState = _fresh_state()
+	state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.walls[Vector2i(1, 6)] = true
+	state.player_hand.append(Rules.CARD_PROMOTE)
+	state.card_played_this_turn = true
+	return assert_eq(Rules.check_outcome(state), Rules.Outcome.LOSS_NO_MOVES,
+		"the turn's one card play is spent, so there is nothing left to play")
+
+
+## Blocked by a wall, the stalemate loop's premise (the blocker will move
+## off on its own) doesn't apply - nothing will ever unblock the pawn but
+## the player's own card. Granting the enemy team turn after turn while
+## the player holds that card hands a distant rook a free walk into
+## capturing range, so the loop stops after the enemy's one ordinary turn
+## and gives the player theirs.
+func test_advance_enemies_and_resolve_stalemate_stops_while_a_card_can_free_the_player() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.walls[Vector2i(1, 6)] = true
+	var rook: Piece = state.add_piece(PieceKind.Kind.ROOK, 1, Vector2i(3, 11))
+	state.player_hand.append(Rules.CARD_PROMOTE)
+	Rules.advance_enemies_and_resolve_stalemate(state)
+	if not assert_not_null(state.get_piece(pawn.id), "the player should not be captured during their own turn"):
+		return false
+	return assert_eq(rook.pos, Vector2i(3, 5), "the enemy team got exactly one turn, not a free run of them")
+
+
+## The same position without the card: now the player really can only
+## pass, the loop keeps granting enemy turns as it did before cards
+## existed, and the rook closes in and captures.
+func test_advance_enemies_and_resolve_stalemate_still_runs_when_no_card_can_help() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.walls[Vector2i(1, 6)] = true
+	state.add_piece(PieceKind.Kind.ROOK, 1, Vector2i(3, 11))
+	Rules.advance_enemies_and_resolve_stalemate(state)
+	return assert_null(state.get_piece(pawn.id),
+		"with no way out of the block, the enemy team keeps its turns and eventually captures")
+
+
+## The HUD asks this to tell "no moves because you're finished" apart
+## from "no moves until you play something", which look identical on a
+## board with no highlighted squares.
+func test_player_must_play_card_only_when_a_card_is_the_only_way_to_move() -> bool:
+	var state: BoardState = _fresh_state()
+	var pawn: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	state.player_hand.append(Rules.CARD_PROMOTE)
+	if not assert_false(Rules.player_must_play_card(state), "a pawn that can just walk forward need not play anything"):
+		return false
+	state.walls[Vector2i(1, 6)] = true
+	if not assert_true(Rules.player_must_play_card(state), "walled in with a card that frees it, the card is the move"):
+		return false
+	state.player_hand.clear()
+	return assert_false(Rules.player_must_play_card(state), "walled in with an empty hand is a dead end, not a prompt")
