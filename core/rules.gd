@@ -146,6 +146,48 @@ static func advance_enemies(state: BoardState, mode: String = ENEMY_TURN_MODE_ON
 		apply_move(state, best_enemy_id, best_choice["dest"])
 
 
+## An enemy has no "stay put" option (advance_enemies() always takes the
+## single legal move that most helps it, if it has any), so a piece
+## merely standing in the player's way isn't the same as it being stuck
+## there - on its next turn it will have to move to one of its own legal
+## destinations, which for most piece/geometry combinations means moving
+## off the blocking square. Calling advance_enemies() only once and then
+## declaring an instant loss the moment the player has no legal move
+## denies the enemy that next turn. This wraps advance_enemies() to keep
+## giving the enemy team further turns - as if the player passed - for as
+## long as the player still can't move and some enemy still can, so a
+## capture-free block resolves itself instead of ending the game. Stops
+## once the player regains a move, is eliminated, or no enemy has a legal
+## move either (a genuine deadlock, still a loss) - or after
+## _MAX_STALEMATE_ENEMY_TURNS iterations, a safety net against an
+## enemy oscillating in and out of the blocking square forever.
+const _MAX_STALEMATE_ENEMY_TURNS: int = 64
+
+static func advance_enemies_and_resolve_stalemate(state: BoardState, mode: String = ENEMY_TURN_MODE_ONE) -> void:
+	advance_enemies(state, mode)
+	var iterations: int = 0
+	while not state.get_player_pieces().is_empty() \
+		and not _any_player_piece_can_move(state) \
+		and _any_enemy_can_move(state) \
+		and iterations < _MAX_STALEMATE_ENEMY_TURNS:
+		advance_enemies(state, mode)
+		iterations += 1
+
+
+static func _any_player_piece_can_move(state: BoardState) -> bool:
+	for player in state.get_player_pieces():
+		if not MoveGen.legal_moves(state, player.id).is_empty():
+			return true
+	return false
+
+
+static func _any_enemy_can_move(state: BoardState) -> bool:
+	for piece in state.pieces:
+		if piece.team == 1 and not MoveGen.legal_moves(state, piece.id).is_empty():
+			return true
+	return false
+
+
 ## Simple heuristic for one enemy: capture a player piece if any legal
 ## move lands on one, otherwise the move that most reduces distance to
 ## the nearest player piece. Returns {} if the enemy has no legal moves.

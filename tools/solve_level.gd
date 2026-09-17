@@ -108,9 +108,11 @@ func _init():
 						if moved_player != null and moved_player.kind != start_kinds.get(player.id):
 							continue
 					# Mirrors GameController.try_move(): the enemy team only
-					# responds if the player's move didn't already end the game.
+					# responds if the player's move didn't already end the game,
+					# and a capture-free block doesn't end it either as long as
+					# some enemy still has a move to make.
 					if Rules.check_outcome(next_state) == Rules.Outcome.ONGOING:
-						Rules.advance_enemies(next_state, level.enemy_turn_mode)
+						Rules.advance_enemies_and_resolve_stalemate(next_state, level.enemy_turn_mode)
 					if require_all_survive and next_state.get_player_pieces().size() < start_player_count:
 						continue
 					# The move ends the turn - a fresh card play is available

@@ -243,3 +243,35 @@ func test_advance_enemies_one_mode_moves_exactly_one_enemy() -> bool:
 	var a_moved: bool = enemy_a.pos != Vector2i(5, 5)
 	var b_moved: bool = enemy_b.pos != Vector2i(4, 4)
 	return assert_true(a_moved != b_moved, "exactly one enemy should act in \"one\" mode")
+
+
+## A knight directly ahead of a pawn blocks its only forward move without
+## threatening it (that exact relative position is never a legal knight
+## move), so this isn't a real dead end - the knight itself has other
+## legal moves and, having no "stay put" option, must take one on its own
+## next turn. advance_enemies_and_resolve_stalemate() should let it,
+## rather than the caller declaring an instant loss the moment the player
+## has no move right this second.
+func test_advance_enemies_and_resolve_stalemate_lets_blocking_knight_move_off() -> bool:
+	var state: BoardState = _fresh_state()
+	var player: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	var enemy: Piece = state.add_piece(PieceKind.Kind.KNIGHT, 1, Vector2i(1, 6))
+	Rules.advance_enemies_and_resolve_stalemate(state)
+	if not assert_not_null(state.get_piece(player.id), "player was never in capturing range, should survive"):
+		return false
+	if not assert_true(enemy.pos != Vector2i(1, 6), "the blocking knight had to move off on its own next turn"):
+		return false
+	return assert_false(MoveGen.legal_moves(state, player.id).is_empty(), "player regained a legal move once unblocked")
+
+
+## A genuine deadlock - the enemy has no legal moves either - is not the
+## same situation and must still end the game: nothing will ever change
+## no matter how many more enemy turns are granted.
+func test_advance_enemies_and_resolve_stalemate_stays_stuck_if_enemy_also_cannot_move() -> bool:
+	var state: BoardState = _fresh_state()
+	var player: Piece = state.add_piece(PieceKind.Kind.PAWN, 0, Vector2i(1, 5))
+	var enemy: Piece = state.add_piece(PieceKind.Kind.PAWN, 1, Vector2i(1, 6))
+	Rules.advance_enemies_and_resolve_stalemate(state)
+	if not assert_eq(enemy.pos, Vector2i(1, 6), "an enemy with no legal moves of its own never moves"):
+		return false
+	return assert_eq(Rules.check_outcome(state), Rules.Outcome.LOSS_NO_MOVES, "a true deadlock is still a loss")

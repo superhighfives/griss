@@ -67,7 +67,7 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 	# try_move(), reflecting the enemy turn's effect too.
 	if Rules.check_outcome(state) == Rules.Outcome.ONGOING:
 		var count_before_enemy_turn: int = state.pieces.size()
-		Rules.advance_enemies(state, enemy_turn_mode)
+		Rules.advance_enemies_and_resolve_stalemate(state, enemy_turn_mode)
 		if state.pieces.size() < count_before_enemy_turn:
 			SoundHooks.on_capture()
 

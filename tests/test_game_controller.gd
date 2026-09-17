@@ -35,3 +35,40 @@ func test_restart_reports_terminal_outcome_immediately() -> bool:
 	controller.restart()
 	return assert_eq(controller.outcome, Rules.Outcome.LOSS_NO_MOVES,
 		"restart() should recompute outcome from the reloaded state, not hardcode ONGOING")
+
+
+## Regression test for a real reported bug: a knight's own capture-or-
+## approach heuristic can land it directly ahead of the player's pawn -
+## blocking its only forward move without threatening it, since that
+## relative position is never a legal knight move. try_move() used to
+## declare an instant loss the moment the player had no legal move right
+## then, without giving the blocking knight a chance to move off on its
+## own very next turn (it has no "stay put" option). This level is tuned
+## so the knight's single best move after the pawn's first move is to
+## land exactly one square ahead of it.
+static func _knight_blocks_but_can_move_off_level() -> Level:
+	var level: Level = Level.new()
+	level.level_name = "Knight Blocks"
+	level.width = 4
+	level.height = 12
+	level.move_budget = 20
+	level.players = [{"kind": PieceKind.Kind.PAWN, "pos": Vector2i(1, 4)}]
+	level.walls = []
+	level.powerups = []
+	level.enemies = [{"kind": PieceKind.Kind.KNIGHT, "pos": Vector2i(2, 8)}]
+	return level
+
+
+func test_try_move_does_not_end_the_game_when_a_blocking_enemy_can_still_move_off() -> bool:
+	var controller: GameController = GameController.new()
+	controller.load_level(_knight_blocks_but_can_move_off_level())
+	var pawn_id: int = controller.state.get_player_pieces()[0].id
+
+	var moved: bool = controller.try_move(pawn_id, Vector2i(1, 5))
+	if not assert_true(moved, "the pawn's first move should be legal"):
+		return false
+	if not assert_eq(controller.outcome, Rules.Outcome.ONGOING,
+		"a non-capturing block should resolve itself instead of ending the game"):
+		return false
+	return assert_false(controller.get_legal_moves(pawn_id).is_empty(),
+		"the pawn should have a legal move again once the knight moved off")
