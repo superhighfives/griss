@@ -99,8 +99,9 @@ drift from what `play_card()` really does.
 click, which is precisely what a loss looks like. The status line now
 reads `Blocked - play a card` in that position, from
 `Rules.player_must_play_card()` (no legal move, and a card would give
-one). It's driven from both controller signals, since playing a card is
-what clears it. The status label also moved from `(150, 8)` to
+one). It hangs off `outcome_updated` as the other statuses always have -
+every state change that reaches the HUD, a card play now included, goes
+through `_finish_turn()`. The status label also moved from `(150, 8)` to
 `(150, 32)`: it now says something during ordinary play, not just at the
 end of one, and on the top row a level name of any length ran straight
 into it — visible in the original bug report's screenshot as

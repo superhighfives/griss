@@ -14,7 +14,6 @@ var restart_button: Button
 var undo_button: Button
 var levels_button: Button
 var card_buttons: Array[Button] = []
-var _outcome: Rules.Outcome = Rules.Outcome.ONGOING
 
 
 func setup(p_controller: GameController, level_name: String) -> void:
@@ -67,7 +66,6 @@ func setup(p_controller: GameController, level_name: String) -> void:
 func _on_state_updated() -> void:
 	moves_label.text = "Moves: %d / %d" % [controller.state.moves_used, controller.state.move_budget]
 	_rebuild_hand()
-	_refresh_status()
 
 
 ## Card buttons are rebuilt from scratch on every state change rather than
@@ -113,16 +111,14 @@ func _on_card_pressed(card_type: String) -> void:
 		controller.try_play_card(card_type)
 
 
+## Every state change that can reach the HUD goes through
+## GameController._finish_turn(), which recomputes the outcome and emits
+## both signals together - playing a card included, since a card play can
+## now end the game on its own. So this runs on every change, and the
+## ONGOING branch below is free to describe the current position rather
+## than just blanking the label.
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:
-	_outcome = outcome
-	_refresh_status()
-
-
-## Status text for the last known outcome. Driven from both signals, not
-## just outcome_updated: playing a card emits only state_updated, and it's
-## exactly what clears the blocked prompt below.
-func _refresh_status() -> void:
-	match _outcome:
+	match outcome:
 		Rules.Outcome.WIN:
 			status_label.text = "WIN!"
 		Rules.Outcome.LOSS_ELIMINATED:
