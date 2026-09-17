@@ -30,6 +30,13 @@ func get_legal_moves(piece_id: int) -> Array[Vector2i]:
 ## move (try_move()) is what ends it. Snapshots for undo just like
 ## try_move() does, so undoing a move also undoes a card played earlier
 ## in the same turn if the player chains Undo.
+##
+## Finishes through _finish_turn() rather than just emitting
+## state_updated, because a card play can now change the outcome on its
+## own: a player with no legal move is kept alive by a card in hand that
+## would give them one (Rules.player_has_action()), so spending this
+## turn's card play on one that doesn't is the moment that reprieve runs
+## out and the position becomes the loss it looked like.
 func try_play_card(card_type: String, target_piece_id: int = -1) -> bool:
 	if outcome != Rules.Outcome.ONGOING:
 		return false
@@ -41,7 +48,7 @@ func try_play_card(card_type: String, target_piece_id: int = -1) -> bool:
 	SoundHooks.on_card_played(card_type)
 	if card_type == Rules.CARD_PROMOTE:
 		SoundHooks.on_promotion()
-	state_updated.emit()
+	_finish_turn()
 	return true
 
 
@@ -60,6 +67,15 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 	if state.pieces.size() < piece_count_before:
 		SoundHooks.on_capture()
 
+	# The move ends the turn - a fresh card play is available next turn.
+	# Cleared here, before the enemy response rather than after it, because
+	# everything below asks whether the player still has an action left and
+	# Rules.player_has_action() counts a card in hand only while this turn's
+	# card play is unspent. Leaving it set through the enemy response would
+	# have both the outcome check and the stalemate loop judge the player
+	# against a turn that's already over.
+	state.card_played_this_turn = false
+
 	# Only let the enemy team act if the player's own move didn't already
 	# end the game (e.g. reaching the goal row) - checked directly rather
 	# than through _finish_turn(), which is called once at the end so
@@ -70,9 +86,6 @@ func try_move(piece_id: int, dest: Vector2i) -> bool:
 		Rules.advance_enemies_and_resolve_stalemate(state, enemy_turn_mode)
 		if state.pieces.size() < count_before_enemy_turn:
 			SoundHooks.on_capture()
-
-	# The move ends the turn - a fresh card play is available next turn.
-	state.card_played_this_turn = false
 
 	_finish_turn()
 	return true

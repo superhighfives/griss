@@ -4,14 +4,15 @@ extends SceneTree
 # BFS over full board states (every piece's id/pos/kind, moves_used,
 # remaining powerups, hand, and card_played_this_turn) using the real core
 # rules engine. Each transition is one turn: optionally play a card
-# (Rules.play_card(), for every card type in hand and every legal target),
-# then a player piece's move, then the level's configured enemy response
-# (Rules.advance_enemies()) - matching what GameController.try_play_card()
-# + try_move() actually do - so the search reflects real play, not just
-# the player's own moves in isolation. Prints a winning move sequence if
-# one exists within the level's move budget, or says no solution was
-# found. A step in the printed path is either {piece_id, dest} (a move) or
-# {card, target} (a card play, target -1 for untargeted cards).
+# (Rules.play_card(), for every card type in hand and every target
+# Rules.card_target_ids() offers), then a player piece's move, then the
+# level's configured enemy response (Rules.advance_enemies()) - matching
+# what GameController.try_play_card() + try_move() actually do - so the
+# search reflects real play, not just the player's own moves in
+# isolation. Prints a winning move sequence if one exists within the
+# level's move budget, or says no solution was found. A step in the
+# printed path is either {piece_id, dest} (a move) or {card, target} (a
+# card play, target -1 for untargeted cards).
 #
 # --forbid-promotion prunes any branch where a player piece's kind has
 # changed from what it started as - used to prove a level requires
@@ -85,7 +86,7 @@ func _init():
 		var turn_starts: Array = [{"state": state, "card_step": null}]
 		if not forbid_cards and not state.card_played_this_turn:
 			for card_type in _unique_card_types(state.player_hand):
-				for target_id in _card_targets(state, card_type):
+				for target_id in Rules.card_target_ids(state, card_type):
 					var card_state: BoardState = state.duplicate_state()
 					if Rules.play_card(card_state, card_type, target_id):
 						turn_starts.append({
@@ -107,6 +108,11 @@ func _init():
 						var moved_player: Piece = next_state.get_piece(player.id)
 						if moved_player != null and moved_player.kind != start_kinds.get(player.id):
 							continue
+					# The move ends the turn - a fresh card play is available
+					# next turn, mirroring GameController.try_move(), and
+					# cleared before the enemy response for the same reason
+					# it is there.
+					next_state.card_played_this_turn = false
 					# Mirrors GameController.try_move(): the enemy team only
 					# responds if the player's move didn't already end the game,
 					# and a capture-free block doesn't end it either as long as
@@ -115,9 +121,6 @@ func _init():
 						Rules.advance_enemies_and_resolve_stalemate(next_state, level.enemy_turn_mode)
 					if require_all_survive and next_state.get_player_pieces().size() < start_player_count:
 						continue
-					# The move ends the turn - a fresh card play is available
-					# next turn, mirroring GameController.try_move().
-					next_state.card_played_this_turn = false
 					var next_path: Array = path.duplicate()
 					if card_step != null:
 						next_path.append(card_step)
@@ -154,16 +157,3 @@ static func _unique_card_types(hand: Array) -> Array:
 	for card_type in hand:
 		seen[card_type] = true
 	return seen.keys()
-
-
-## Legal target_piece_id values to try for a card type: every current
-## player piece id for a targeted card (Rules.play_card validates team/
-## legality itself, so over-generating here is harmless), or a single -1
-## for an untargeted card like push_back.
-static func _card_targets(state: BoardState, card_type: String) -> Array:
-	if card_type == Rules.CARD_PROMOTE:
-		var ids: Array = []
-		for player in state.get_player_pieces():
-			ids.append(player.id)
-		return ids
-	return [-1]

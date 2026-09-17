@@ -35,7 +35,7 @@ godot --headless --path . --script res://tests/run_tests.gd
 
 Headless, no editor, no addons — `tests/run_tests.gd` is a `SceneTree`
 script that runs every `test_*()` function it finds and exits non-zero on
-failure. Should print `Passed: 46, Failed: 0`. Run this after any change to
+failure. Should print `Passed: 80, Failed: 0`. Run this after any change to
 `core/` or `game/`.
 
 **Faster iteration for UI/input changes:** run the game locally

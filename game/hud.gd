@@ -14,6 +14,7 @@ var restart_button: Button
 var undo_button: Button
 var levels_button: Button
 var card_buttons: Array[Button] = []
+var _outcome: Rules.Outcome = Rules.Outcome.ONGOING
 
 
 func setup(p_controller: GameController, level_name: String) -> void:
@@ -31,7 +32,11 @@ func setup(p_controller: GameController, level_name: String) -> void:
 	add_child(moves_label)
 
 	status_label = Label.new()
-	status_label.position = Vector2(150, 8)
+	# Second row, beside the move counter: the status line now says
+	# something during ordinary play ("Blocked - play a card"), not only at
+	# the end of one, and on the top row a level name of any length runs
+	# straight into it.
+	status_label.position = Vector2(150, 32)
 	status_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
 	add_child(status_label)
 
@@ -62,6 +67,7 @@ func setup(p_controller: GameController, level_name: String) -> void:
 func _on_state_updated() -> void:
 	moves_label.text = "Moves: %d / %d" % [controller.state.moves_used, controller.state.move_budget]
 	_rebuild_hand()
+	_refresh_status()
 
 
 ## Card buttons are rebuilt from scratch on every state change rather than
@@ -108,7 +114,15 @@ func _on_card_pressed(card_type: String) -> void:
 
 
 func _on_outcome_updated(outcome: Rules.Outcome) -> void:
-	match outcome:
+	_outcome = outcome
+	_refresh_status()
+
+
+## Status text for the last known outcome. Driven from both signals, not
+## just outcome_updated: playing a card emits only state_updated, and it's
+## exactly what clears the blocked prompt below.
+func _refresh_status() -> void:
+	match _outcome:
 		Rules.Outcome.WIN:
 			status_label.text = "WIN!"
 		Rules.Outcome.LOSS_ELIMINATED:
@@ -116,4 +130,8 @@ func _on_outcome_updated(outcome: Rules.Outcome) -> void:
 		Rules.Outcome.LOSS_NO_MOVES:
 			status_label.text = "LOSS - out of moves"
 		_:
-			status_label.text = ""
+			# Being blocked with a card in hand that would free the piece
+			# is no longer a loss, but with no highlighted move to click it
+			# reads exactly like one - so say what the way out is. See
+			# plans/done/blocked-with-a-card-is-not-a-loss.md.
+			status_label.text = "Blocked - play a card" if Rules.player_must_play_card(controller.state) else ""

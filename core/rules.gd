@@ -157,17 +157,22 @@ static func advance_enemies(state: BoardState, mode: String = ENEMY_TURN_MODE_ON
 ## giving the enemy team further turns - as if the player passed - for as
 ## long as the player still can't move and some enemy still can, so a
 ## capture-free block resolves itself instead of ending the game. Stops
-## once the player regains a move, is eliminated, or no enemy has a legal
-## move either (a genuine deadlock, still a loss) - or after
-## _MAX_STALEMATE_ENEMY_TURNS iterations, a safety net against an
-## enemy oscillating in and out of the blocking square forever.
+## once the player has an action again (a move of their own, or a card
+## that would give them one - player_has_action() below), is eliminated,
+## or no enemy has a legal move either (a genuine deadlock, still a loss)
+## - or after _MAX_STALEMATE_ENEMY_TURNS iterations, a safety net against
+## an enemy oscillating in and out of the blocking square forever. The
+## extra turns are granted on the premise that the player can only pass;
+## a player holding a card that unblocks them isn't passing, so the loop
+## hands the turn back to them rather than letting the enemy team keep
+## repositioning for free while they still have something to play.
 const _MAX_STALEMATE_ENEMY_TURNS: int = 64
 
 static func advance_enemies_and_resolve_stalemate(state: BoardState, mode: String = ENEMY_TURN_MODE_ONE) -> void:
 	advance_enemies(state, mode)
 	var iterations: int = 0
 	while not state.get_player_pieces().is_empty() \
-		and not _any_player_piece_can_move(state) \
+		and not player_has_action(state) \
 		and _any_enemy_can_move(state) \
 		and iterations < _MAX_STALEMATE_ENEMY_TURNS:
 		advance_enemies(state, mode)
@@ -186,6 +191,68 @@ static func _any_enemy_can_move(state: BoardState) -> bool:
 		if piece.team == 1 and not MoveGen.legal_moves(state, piece.id).is_empty():
 			return true
 	return false
+
+
+## Whether the player can still do anything this turn: move one of their
+## pieces, or play a card from their hand that would give them a move
+## back. A piece with a wall or a piece directly ahead of it isn't
+## finished while a card in hand can change what "ahead" means - promoting
+## a blocked pawn into a knight is exactly the "change form and move" the
+## cards exist for, and Push Back can shove the piece doing the blocking
+## out of the way. Used both by check_outcome() (so that state isn't a
+## loss) and by advance_enemies_and_resolve_stalemate() (so the enemy team
+## doesn't get free turns while the player still has something to play).
+static func player_has_action(state: BoardState) -> bool:
+	return _any_player_piece_can_move(state) or _any_card_unblocks_player(state)
+
+
+## The specific case above that has no square to click: the player has no
+## legal move at all, and a card is the only thing standing between them
+## and one. The HUD says so rather than leaving a board with no highlights
+## looking like the dead end it used to be.
+static func player_must_play_card(state: BoardState) -> bool:
+	if state.get_player_pieces().is_empty() or _any_player_piece_can_move(state):
+		return false
+	return _any_card_unblocks_player(state)
+
+
+## Whether some card in hand, played now on some legal target, would leave
+## a player piece with a legal move. Answered by actually playing each
+## (card, target) pair on a throwaway copy of the state rather than by
+## reasoning about what each card does - a card that a level adds later
+## gets counted here for free, and the answer can never drift from what
+## play_card() really does. False once a card has already been played this
+## turn: the turn's one card play is spent, and only a move can end the
+## turn and refresh it, so nothing more is available.
+static func _any_card_unblocks_player(state: BoardState) -> bool:
+	if state.card_played_this_turn or state.player_hand.is_empty():
+		return false
+	var tried: Dictionary = {}
+	for card_type: String in state.player_hand:
+		if tried.has(card_type):
+			continue
+		tried[card_type] = true
+		for target_id: int in card_target_ids(state, card_type):
+			var probe: BoardState = state.duplicate_state()
+			if not play_card(probe, card_type, target_id):
+				continue
+			if _any_player_piece_can_move(probe):
+				return true
+	return false
+
+
+## The target_piece_id values worth trying for a card type: every current
+## player piece for a targeted card (Promote), or a single -1 for an
+## untargeted one (Push Back). play_card() validates the target itself, so
+## over-generating here is harmless. Shared with tools/solve_level.gd,
+## which enumerates the same branches.
+static func card_target_ids(state: BoardState, card_type: String) -> Array[int]:
+	if card_type != CARD_PROMOTE:
+		return [-1]
+	var ids: Array[int] = []
+	for player in state.get_player_pieces():
+		ids.append(player.id)
+	return ids
 
 
 ## Simple heuristic for one enemy: capture a player piece if any legal
@@ -220,11 +287,14 @@ static func _distance_to_nearest_player(state: BoardState, from: Vector2i) -> in
 ## A player piece on the goal row wins immediately, even with other
 ## player pieces still on the board - the objective is getting ONE piece
 ## through, not all of them. Losing is: every player piece captured (none
-## reached the goal), move budget exhausted, or every remaining player
-## piece has zero legal moves. Moving onto a square an enemy threatens is
-## no longer instant loss on its own now that enemies actually move and
-## capture (see plans/done/m5-sacrifice.md) - MoveGen.threatened_squares()
-## is still used for BoardView's warning overlay, just not as a rule here.
+## reached the goal), move budget exhausted, or the player has no action
+## left at all - no piece with a legal move, and no card in hand that
+## would give one back (player_has_action() above; being blocked with a
+## playable card is a prompt to change form, not a defeat). Moving onto a
+## square an enemy threatens is no longer instant loss on its own now that
+## enemies actually move and capture (see plans/done/m5-sacrifice.md) -
+## MoveGen.threatened_squares() is still used for BoardView's warning
+## overlay, just not as a rule here.
 static func check_outcome(state: BoardState) -> Outcome:
 	var players: Array[Piece] = state.get_player_pieces()
 
@@ -238,8 +308,7 @@ static func check_outcome(state: BoardState) -> Outcome:
 	if state.moves_used >= state.move_budget:
 		return Outcome.LOSS_NO_MOVES
 
-	for player in players:
-		if not MoveGen.legal_moves(state, player.id).is_empty():
-			return Outcome.ONGOING
+	if player_has_action(state):
+		return Outcome.ONGOING
 
 	return Outcome.LOSS_NO_MOVES
