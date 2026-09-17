@@ -15,6 +15,15 @@ run/main_scene="res://game/Main.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.png"
 
+[audio]
+
+; iOS silences the default session category ("Ambient", 0) whenever the
+; hardware Ring/Silent switch is set to silent. These effects are gameplay
+; feedback, not background music, so use "Playback" (3), which sounds
+; regardless of the switch. Note the editor strips these comments on save -
+; the reasoning lives in plans/done/implement-sound-effects.md.
+general/ios/session_category=3
+
 [display]
 
 window/size/viewport_width=480
