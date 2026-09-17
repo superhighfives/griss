@@ -26,3 +26,8 @@ const MOVE_TWEEN_DURATION: float = 0.12
 const HIGHLIGHT_PULSE_HALF_DURATION: float = 0.35
 const HIGHLIGHT_PULSE_MIN_ALPHA: float = 0.25
 const HIGHLIGHT_PULSE_MAX_ALPHA: float = 0.55
+
+## Audio. Applied to every sound effect voice (game/sfx.gd). The synthesised
+## sounds in game/sfx_bank.gd are mixed to sit just under full scale, so this
+## is headroom against the master bus rather than a fix for clipping.
+const SFX_VOLUME_DB: float = -6.0

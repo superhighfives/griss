@@ -23,8 +23,20 @@ var _level_select_buttons: Array[Button] = []
 
 
 func _ready() -> void:
+	_setup_sound()
 	_show_level_select()
 	_center_in_safe_area()
+
+
+## Main owns the sound node and hands it to SoundHooks once, here. It is
+## built in code rather than added to Main.tscn for the same reason as
+## everything else in this scene (docs/PLAN.md section 9), and it is wired
+## explicitly rather than autoloaded because that section rules autoloads
+## out. It lives for the life of the app, so _teardown_level() leaves it be.
+func _setup_sound() -> void:
+	var sfx: Sfx = Sfx.new()
+	add_child(sfx)
+	SoundHooks.attach(sfx)
 
 
 func _show_level_select() -> void:
